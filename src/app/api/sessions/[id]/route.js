@@ -2,7 +2,10 @@ import { NextResponse } from 'next/server';
 import { 
   getSessionById, 
   updateSessionStatus, 
-  deleteSession 
+  deleteSession,
+  submitUserAction,
+  checkAndProcessBattle,
+  resetBattleActions
 } from '../../../../../scripts/database.js';
 
 // GET /api/sessions/[id] - Get a specific session
@@ -78,6 +81,61 @@ export async function DELETE(request, { params }) {
     console.error('Error deleting session:', error);
     return NextResponse.json(
       { success: false, error: 'Failed to delete session' },
+      { status: 500 }
+    );
+  }
+} 
+
+// PATCH /api/sessions/[id] - Submit user action or reset battle
+export async function PATCH(request, { params }) {
+  try {
+    const { id } = params;
+    const body = await request.json();
+    
+    if (body.action) {
+      // Submit user action
+      const { action, userWalletAddress } = body;
+      
+      if (!action || !userWalletAddress) {
+        return NextResponse.json(
+          { success: false, error: 'action and userWalletAddress are required' },
+          { status: 400 }
+        );
+      }
+      
+      const session = await submitUserAction(id, userWalletAddress, action);
+      
+      // Check if this was a battle processing response
+      const battleProcessed = session.user1Action === '' && session.user2Action === '';
+      const message = battleProcessed 
+        ? 'Battle processed! New round starting.' 
+        : 'Action submitted successfully';
+      
+      return NextResponse.json({ 
+        success: true, 
+        session: session,
+        battleProcessed: battleProcessed,
+        message: message
+      });
+    } else if (body.resetBattle) {
+      // Reset battle actions for next round
+      const session = await resetBattleActions(id);
+      
+      return NextResponse.json({ 
+        success: true, 
+        session: session,
+        message: 'Battle actions reset successfully'
+      });
+    } else {
+      return NextResponse.json(
+        { success: false, error: 'Invalid request body' },
+        { status: 400 }
+      );
+    }
+  } catch (error) {
+    console.error('Error in PATCH request:', error);
+    return NextResponse.json(
+      { success: false, error: error.message || 'Failed to process request' },
       { status: 500 }
     );
   }

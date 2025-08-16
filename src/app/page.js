@@ -671,9 +671,10 @@ export default function Home() {
 
   // Current active battle session for the user
   const [currentBattle, setCurrentBattle] = useState(null);
-
-  // Battle turn tracking
-  const [currentTurn, setCurrentTurn] = useState('user1'); // 'user1' or 'user2'
+  
+  // Battle action tracking
+  const [userAction, setUserAction] = useState('');
+  const [battlePhase, setBattlePhase] = useState('waiting');
   const [battleLog, setBattleLog] = useState([]);
 
   // Drawing overlay state
@@ -706,32 +707,79 @@ export default function Home() {
       (session.user1?.walletAddress === currentWalletAddress ||
         session.user2?.walletAddress === currentWalletAddress)
     );
-
+    
+    console.log('Checking for active battle:', {
+      activeSession,
+      currentWalletAddress,
+      sessions: sessions.map(s => ({ id: s.sessionId, status: s.status, battlePhase: s.battlePhase })),
+      currentUserAction: userAction
+    });
+    
     if (activeSession) {
       setCurrentBattle(activeSession);
       setActiveTab('battle');
+      
+      // Set battle phase from session - if status is active, battle should be ready
+      const sessionBattlePhase = activeSession.battlePhase || 'waiting';
+      if (activeSession.status === 'active' && sessionBattlePhase === 'waiting') {
+        setBattlePhase('action-selection');
+        console.log('Setting battle phase to action-selection because session is active');
+      } else {
+        setBattlePhase(sessionBattlePhase);
+        console.log('Setting battle phase to:', sessionBattlePhase);
+      }
+      
+      // Determine which role the current user has and set their action accordingly
+      const isUser1 = activeSession.user1?.walletAddress === currentWalletAddress;
+      const isUser2 = activeSession.user2?.walletAddress === currentWalletAddress;
+      
+      console.log('User role detection:', { isUser1, isUser2, currentWalletAddress, user1Wallet: activeSession.user1?.walletAddress, user2Wallet: activeSession.user2?.walletAddress });
+      
+      if (!userAction) {
+        if (isUser1) {
+          const newUserAction = activeSession.user1Action || '';
+          setUserAction(newUserAction);
+          console.log('Setting user action from session (user1):', newUserAction);
+        } else if (isUser2) {
+          const newUserAction = activeSession.user2Action || '';
+          setUserAction(newUserAction);
+          console.log('Setting user action from session (user2):', newUserAction);
+        }
+      } else {
+        console.log('Preserving existing user action:', userAction);
+      }
+      
       // Initialize battle log
-      setBattleLog([
+      const initialLog = [
         `Battle started between ${activeSession.user1?.walletAddress?.substring(0, 10)}... and ${activeSession.user2?.walletAddress?.substring(0, 10)}...`,
         'Both Pokemon are ready for battle!',
-        'User 1 goes first!'
-      ]);
-      setCurrentTurn('user1');
+        'Choose your actions simultaneously!'
+      ];
+      
+      // Add any existing battle log messages from the session
+      if (activeSession.battleLog && activeSession.battleLog.length > 0) {
+        const sessionMessages = activeSession.battleLog.map(log => log.message);
+        setBattleLog([...initialLog, ...sessionMessages]);
+      } else {
+        setBattleLog(initialLog);
+      }
     } else {
+      console.log('No active battle found, resetting state');
       setCurrentBattle(null);
       setBattleLog([]);
-      setCurrentTurn('user1');
+      setBattlePhase('waiting');
+      setUserAction('');
     }
   };
 
   // Check if it's the current user's turn
   const isUserTurn = () => {
     if (!currentBattle) return false;
-
-    if (currentTurn === 'user1' && currentBattle.user1?.walletAddress === currentWalletAddress) {
+    
+    if (currentBattle.user1?.walletAddress === currentWalletAddress) {
       return true;
     }
-    if (currentTurn === 'user2' && currentBattle.user2?.walletAddress === currentWalletAddress) {
+    if (currentBattle.user2?.walletAddress === currentWalletAddress) {
       return true;
     }
     return false;
@@ -748,22 +796,6 @@ export default function Home() {
       return 'user2';
     }
     return null;
-  };
-
-  // Switch turns
-  const switchTurn = () => {
-    const newTurn = currentTurn === 'user1' ? 'user2' : 'user1';
-    setCurrentTurn(newTurn);
-
-    const currentUser = newTurn === 'user1' ? currentBattle.user1 : currentBattle.user2;
-    const opponent = newTurn === 'user1' ? currentBattle.user2 : currentBattle.user1;
-
-    setBattleLog(prev => [...prev, `${currentUser?.walletAddress?.substring(0, 10)}...'s turn!`]);
-  };
-
-  // Add message to battle log
-  const addToBattleLog = (message) => {
-    setBattleLog(prev => [...prev, message]);
   };
 
   // Create a new session with only user1
@@ -906,94 +938,226 @@ export default function Home() {
     setMessage('🎨 Drawing saved! You can now create or join a battle.');
   };
 
+  // Helper functions for health calculations
+  const getMaxHealth = (defense) => 100 + (defense * 20);
+  const getHealthPercentage = (currentHealth, maxHealth) => Math.max(0, Math.min(100, (currentHealth / maxHealth) * 100));
+  const getHealthColor = (percentage) => {
+    if (percentage > 60) return 'bg-green-500';
+    if (percentage > 30) return 'bg-yellow-500';
+    return 'bg-red-500';
+  };
+
   // Battle action functions
-  const performAttack = () => {
-    if (!isUserTurn()) return;
-
-    const userRole = getUserRole();
-    const user = currentBattle[userRole];
-    const opponent = userRole === 'user1' ? currentBattle.user2 : currentBattle.user1;
-
-    // Simple attack calculation
-    const damage = Math.max(1, user.attributes.attack - opponent.attributes.defense);
-
-    addToBattleLog(`${user.walletAddress.substring(0, 10)}... attacks for ${damage} damage!`);
-
-    // Switch turns
-    switchTurn();
-  };
-
-  const performDefense = () => {
-    if (!isUserTurn()) return;
-
-    const userRole = getUserRole();
-    const user = currentBattle[userRole];
-
-    addToBattleLog(`${user.walletAddress.substring(0, 10)}... takes a defensive stance!`);
-
-    // Switch turns
-    switchTurn();
-  };
-
-  const performSpecial = () => {
-    if (!isUserTurn()) return;
-
-    const userRole = getUserRole();
-    const user = currentBattle[userRole];
-
-    // Special move based on highest attribute
-    let specialEffect = '';
-    if (user.attributes.speed >= user.attributes.attack && user.attributes.speed >= user.attributes.defense) {
-      specialEffect = 'uses Quick Strike for bonus damage!';
-    } else if (user.attributes.attack >= user.attributes.defense) {
-      specialEffect = 'uses Power Strike for massive damage!';
-    } else {
-      specialEffect = 'uses Iron Defense to block all damage!';
-    }
-
-    addToBattleLog(`${user.walletAddress.substring(0, 10)}... ${specialEffect}`);
-
-    // Switch turns
-    switchTurn();
-  };
-
-  const fleeBattle = async () => {
-    if (!isUserTurn()) return;
-
-    const userRole = getUserRole();
-    const user = currentBattle[userRole];
-
-    addToBattleLog(`${user.walletAddress.substring(0, 10)}... flees from battle!`);
-
-    // Set session status to completed when user flees
+  const submitAction = async (action) => {
+    if (!currentBattle || !isUserTurn()) return;
+    
+    console.log('Submitting action:', action, 'for battle:', currentBattle.sessionId);
+    setLoading(true);
     try {
-      setLoading(true);
       const response = await fetch(`/api/sessions/${currentBattle.sessionId}`, {
-        method: 'PUT',
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'completed' })
+        body: JSON.stringify({ 
+          action: action, 
+          userWalletAddress: currentWalletAddress 
+        })
       });
-
+      
       const data = await response.json();
+      console.log('Action submission response:', data);
+      
       if (data.success) {
-        addToBattleLog('Battle ended due to flee!');
-        // Refresh sessions to get updated status
-        await fetchSessions();
-        // Clear current battle since it's now completed
-        setCurrentBattle(null);
-        setActiveTab('sessions');
+        // Always update the current battle with the latest session data
+        if (data.session) {
+          setCurrentBattle(data.session);
+          
+          // Check if this was a battle processing response
+          if (data.battleProcessed) {
+            // Battle was processed - actions are now reset
+            setUserAction(''); // Clear user action immediately
+            setBattlePhase('action-selection');
+            setMessage(`✅ ${data.message} - New round starting!`);
+            
+            // Show notification for battle resolution
+            if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+              new Notification('Battle Resolved!', {
+                body: 'Round completed! Check the battle log for results.',
+                icon: '/favicon.ico'
+              });
+            }
+            
+            // Add battle resolution to log with enhanced formatting
+            if (data.session.battleLog && data.session.battleLog.length > 0) {
+              const latestLog = data.session.battleLog[data.session.battleLog.length - 1];
+              const roundNumber = data.session.currentRound - 1;
+              
+              // Add round completion message with better formatting
+              setBattleLog(prev => [
+                ...prev, 
+                `🎯 Round ${roundNumber} completed!`,
+                `⚔️ ${latestLog.message}`,
+                `❤️ User1 Health: ${data.session.user1Health}/${getMaxHealth(data.session.user1?.attributes?.defense || 0)}`,
+                `❤️ User2 Health: ${data.session.user2Health}/${getMaxHealth(data.session.user2?.attributes?.defense || 0)}`
+              ]);
+              
+              // Check if battle is complete
+              if (data.session.battlePhase === 'completed') {
+                const winner = data.session.user1Health <= 0 ? 'User2' : 'User1';
+                setBattlePhase('completed');
+                setBattleLog(prev => [...prev, `🏆 ${winner} wins the battle!`]);
+                setMessage(`🏆 Battle Complete! ${winner} is victorious!`);
+                
+                // Show victory notification
+                if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+                  new Notification('Battle Complete!', {
+                    body: `${winner} is victorious!`,
+                    icon: '/favicon.ico'
+                  });
+                }
+              } else {
+                // Show countdown for next round
+                setMessage(`🎯 Round ${data.session.currentRound} starting in 3 seconds...`);
+                setTimeout(() => {
+                  setMessage(`🎯 Round ${data.session.currentRound} started! Choose your action.`);
+                }, 3000);
+              }
+            }
+          } else {
+            // Just an action submission
+            setUserAction(action);
+            setMessage(`✅ ${data.message}`);
+            
+            // Update battle phase if changed
+            if (data.session.battlePhase && data.session.battlePhase !== battlePhase) {
+              setBattlePhase(data.session.battlePhase);
+            }
+          }
+        }
       } else {
-        addToBattleLog('Error ending battle: ' + data.error);
+        setMessage('❌ Error: ' + data.error);
       }
     } catch (error) {
-      addToBattleLog('Error ending battle: ' + error.message);
+      console.error('Error submitting action:', error);
+      setMessage('❌ Error: ' + error.message);
     } finally {
       setLoading(false);
     }
   };
 
+  const resetBattle = async () => {
+    if (!currentBattle) return;
+    
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/sessions/${currentBattle.sessionId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          resetBattle: true,
+          startNewBattle: battlePhase === 'completed' // Start new battle if current is completed
+        })
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        // Always clear user action when resetting
+        setUserAction('');
+        console.log('User action cleared during battle reset');
+        
+        if (data.session) {
+          setCurrentBattle(data.session);
+          setBattlePhase(data.session.battlePhase || 'action-selection');
+          
+          if (battlePhase === 'completed') {
+            // Starting a new battle
+            setMessage(`🎯 New battle started! Both players have full health.`);
+            setBattleLog([
+              `New battle started between ${data.session.user1?.walletAddress?.substring(0, 10)}... and ${data.session.user2?.walletAddress?.substring(0, 10)}...`,
+              'Both Pokemon are ready for battle!',
+              'Choose your actions simultaneously!'
+            ]);
+          } else {
+            // Resetting for next round
+            setMessage(`🎯 Round ${data.session.currentRound} started! Choose your action.`);
+          }
+        }
+        
+        // Refresh the session to get the latest state
+        await fetchSessions();
+      } else {
+        setMessage('❌ Error: ' + data.error);
+      }
+    } catch (error) {
+      setMessage('❌ Error: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Force round transition if both players have actions but system is stuck
+  const forceRoundTransition = async () => {
+    if (!currentBattle) return;
+    
+    // Check if both players have submitted actions
+    if (currentBattle.user1Action && currentBattle.user2Action) {
+      setLoading(true);
+      try {
+        // Manually trigger battle processing by calling the API
+        const response = await fetch(`/api/sessions/${currentBattle.sessionId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            action: currentBattle.user1?.walletAddress === currentWalletAddress ? 
+              currentBattle.user1Action : currentBattle.user2Action, 
+            userWalletAddress: currentWalletAddress 
+          })
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+          setMessage('🔄 Round transition forced successfully');
+          // Refresh to get updated state
+          await fetchSessions();
+        } else {
+          setMessage('❌ Error forcing round transition: ' + data.error);
+        }
+      } catch (error) {
+        setMessage('❌ Error: ' + error.message);
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      setMessage('⚠️ Both players must have submitted actions to force round transition');
+    }
+  };
+
+  // Force clear user action (emergency function)
+  const forceClearUserAction = () => {
+    setUserAction('');
+    setMessage('🔄 User action manually cleared');
+    console.log('User action force cleared');
+  };
+
+  // Request notification permissions
+  const requestNotificationPermission = async () => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      if (Notification.permission === 'default') {
+        const permission = await Notification.requestPermission();
+        if (permission === 'granted') {
+          console.log('Notification permission granted');
+        }
+      }
+    }
+  };
+
+  const performAttack = () => submitAction('attack');
+  const performDefense = () => submitAction('defense');
+  const performSpecial = () => submitAction('special');
+  const fleeBattle = () => submitAction('flee');
+
   useEffect(() => {
     fetchWaitingSessions();
+    requestNotificationPermission(); // Request notification permissions
   }, []);
 
   // Listen for wallet account changes
@@ -1042,6 +1206,205 @@ export default function Home() {
   useEffect(() => {
     checkForActiveBattle();
   }, [sessions, currentWalletAddress]);
+
+  // Periodically refresh current battle to check for opponent actions and round changes
+  useEffect(() => {
+    if (currentBattle && battlePhase === 'action-selection') {
+      const interval = setInterval(async () => {
+        try {
+          const response = await fetch(`/api/sessions/${currentBattle.sessionId}`);
+          const data = await response.json();
+          
+          if (data.success && data.session) {
+            const updatedSession = data.session;
+            
+            console.log('Periodic refresh - checking for changes:', {
+              currentBattle: {
+                user1Action: currentBattle.user1Action,
+                user2Action: currentBattle.user2Action,
+                currentRound: currentBattle.currentRound,
+                battlePhase: currentBattle.battlePhase
+              },
+              updatedSession: {
+                user1Action: updatedSession.user1Action,
+                user2Action: updatedSession.user2Action,
+                currentRound: updatedSession.currentRound,
+                battlePhase: updatedSession.battlePhase
+              }
+            });
+            
+            // Check if actions were reset (indicating a new round started)
+            const actionsWereReset = updatedSession.user1Action === '' && updatedSession.user2Action === '';
+            const previousActions = currentBattle.user1Action !== '' || currentBattle.user2Action !== '';
+            
+            if (actionsWereReset && previousActions) {
+              console.log('🔄 Actions reset detected - new round starting!');
+              setUserAction(''); // Clear user action for new round
+              setCurrentBattle(updatedSession);
+              setMessage('🎯 New round starting! Choose your action.');
+              return;
+            }
+            
+            // Check if round number increased
+            if (updatedSession.currentRound > currentBattle.currentRound) {
+              console.log('🔄 Round number increased - new round starting!');
+              setUserAction(''); // Clear user action for new round
+              setCurrentBattle(updatedSession);
+              setMessage(`🎯 Round ${updatedSession.currentRound} started! Choose your action.`);
+              return;
+            }
+            
+            // Check if battle phase changed
+            if (updatedSession.battlePhase !== battlePhase) {
+              console.log('🔄 Battle phase changed:', updatedSession.battlePhase);
+              setBattlePhase(updatedSession.battlePhase);
+              setCurrentBattle(updatedSession);
+              
+              // If phase changed to action-selection, clear user action
+              if (updatedSession.battlePhase === 'action-selection') {
+                setUserAction('');
+                setMessage('🎯 New round ready! Choose your action.');
+              }
+              return;
+            }
+            
+            // Check if the current user's action was reset (for opponent's perspective)
+            const currentUserRole = currentBattle.user1?.walletAddress === currentWalletAddress ? 'user1' : 'user2';
+            const currentUserActionField = currentUserRole === 'user1' ? 'user1Action' : 'user2Action';
+            const previousUserAction = currentBattle[currentUserActionField];
+            const currentUserAction = updatedSession[currentUserActionField];
+            
+            console.log('Checking user action reset:', {
+              currentUserRole,
+              currentUserActionField,
+              previousUserAction,
+              currentUserAction,
+              currentWalletAddress
+            });
+            
+            if (previousUserAction && !currentUserAction) {
+              console.log('🔄 Current user action was reset - new round starting!');
+              setUserAction(''); // Clear user action for new round
+              setCurrentBattle(updatedSession);
+              setMessage('🎯 New round starting! Choose your action.');
+              return;
+            }
+            
+            // Check if opponent submitted an action (show it in the UI)
+            const opponentActionField = currentUserRole === 'user1' ? 'user2Action' : 'user1Action';
+            const previousOpponentAction = currentBattle[opponentActionField];
+            const currentOpponentAction = updatedSession[opponentActionField];
+            
+            if (!previousOpponentAction && currentOpponentAction) {
+              console.log('🔄 Opponent submitted action:', currentOpponentAction);
+              setCurrentBattle(updatedSession);
+              setMessage(`🎯 Opponent chose: ${currentOpponentAction}`);
+              return;
+            }
+            
+            // Check if both players now have actions (battle should resolve soon)
+            if (updatedSession.user1Action && updatedSession.user2Action && 
+                (!currentBattle.user1Action || !currentBattle.user2Action)) {
+              console.log('🔄 Both players have submitted actions - battle will resolve soon');
+              setCurrentBattle(updatedSession);
+              setMessage('⚔️ Both actions submitted! Battle resolving...');
+              
+              // Show notification that both actions are submitted
+              if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+                new Notification('Battle Ready!', {
+                  body: 'Both players have submitted actions. Battle resolving...',
+                  icon: '/favicon.ico'
+                });
+              }
+              
+              // Add a small delay to show the "resolving" message, then check for resolution
+              setTimeout(async () => {
+                try {
+                  const resolutionResponse = await fetch(`/api/sessions/${currentBattle.sessionId}`);
+                  const resolutionData = await resolutionResponse.json();
+                  
+                  if (resolutionData.success && resolutionData.session) {
+                    const resolvedSession = resolutionData.session;
+                    
+                    // Check if battle was resolved (actions reset)
+                    if (resolvedSession.user1Action === '' && resolvedSession.user2Action === '') {
+                      console.log('🎯 Battle resolved! Actions reset for next round');
+                      setCurrentBattle(resolvedSession);
+                      setUserAction('');
+                      setBattlePhase(resolvedSession.battlePhase || 'action-selection');
+                      
+                      // Show notification for battle resolution
+                      if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+                        new Notification('Battle Resolved!', {
+                          body: 'Round completed! Check the battle log for results.',
+                          icon: '/favicon.ico'
+                        });
+                      }
+                      
+                      // Add battle resolution to log
+                      if (resolvedSession.battleLog && resolvedSession.battleLog.length > 0) {
+                        const latestLog = resolvedSession.battleLog[resolvedSession.battleLog.length - 1];
+                        const roundNumber = resolvedSession.currentRound - 1;
+                        
+                        setBattleLog(prev => [
+                          ...prev, 
+                          `🎯 Round ${roundNumber} completed!`,
+                          `⚔️ ${latestLog.message}`,
+                          `❤️ User1 Health: ${resolvedSession.user1Health}/${getMaxHealth(resolvedSession.user1?.attributes?.defense || 0)}`,
+                          `❤️ User2 Health: ${resolvedSession.user2Health}/${getMaxHealth(resolvedSession.user2?.attributes?.defense || 0)}`
+                        ]);
+                        
+                        // Check if battle is complete
+                        if (resolvedSession.battlePhase === 'completed') {
+                          const winner = resolvedSession.user1Health <= 0 ? 'User2' : 'User1';
+                          setBattlePhase('completed');
+                          setBattleLog(prev => [...prev, `🏆 ${winner} wins the battle!`]);
+                          setMessage(`🏆 Battle Complete! ${winner} is victorious!`);
+                          
+                          // Show victory notification
+                          if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+                            new Notification('Battle Complete!', {
+                              body: `${winner} is victorious!`,
+                              icon: '/favicon.ico'
+                            });
+                          }
+                        } else {
+                          setMessage(`🎯 Round ${resolvedSession.currentRound} started! Choose your action.`);
+                        }
+                      }
+                    }
+                  }
+                } catch (error) {
+                  console.error('Error checking battle resolution:', error);
+                }
+              }, 2000); // Wait 2 seconds for battle processing
+              
+              return;
+            }
+            
+            // Update battle log with new messages
+            if (updatedSession.battleLog && updatedSession.battleLog.length > 0) {
+              const currentLogLength = currentBattle.battleLog ? currentBattle.battleLog.length : 0;
+              if (updatedSession.battleLog.length > currentLogLength) {
+                const newMessages = updatedSession.battleLog.slice(currentLogLength).map(log => log.message);
+                setBattleLog(prev => [...prev, ...newMessages]);
+              }
+            }
+            
+            // Update current battle with latest data if there are any changes
+            if (JSON.stringify(updatedSession) !== JSON.stringify(currentBattle)) {
+              console.log('🔄 Updating battle state with new data');
+              setCurrentBattle(updatedSession);
+            }
+          }
+        } catch (error) {
+          console.error('Error refreshing battle:', error);
+        }
+      }, 1500); // Check every 1.5 seconds
+      
+      return () => clearInterval(interval);
+    }
+  }, [currentBattle, battlePhase, currentWalletAddress]);
 
   // Update form data when wallet address changes
   useEffect(() => {
@@ -1308,6 +1671,23 @@ export default function Home() {
                     <p className="font-mono text-sm text-gray-600 mb-2">
                       {currentBattle.user1?.walletAddress || 'Unknown'}
                     </p>
+                    
+                    {/* Health Bar */}
+                    <div className="mb-3">
+                      <div className="flex justify-between text-xs text-gray-600 mb-1">
+                        <span>❤️ HP</span>
+                        <span>{currentBattle.user1Health || 100}/{getMaxHealth(currentBattle.user1?.attributes?.defense || 0)}</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div 
+                          className={`h-2 rounded-full transition-all duration-300 ${getHealthColor(getHealthPercentage(currentBattle.user1Health || 100, getMaxHealth(currentBattle.user1?.attributes?.defense || 0)))}`}
+                          style={{ 
+                            width: `${getHealthPercentage(currentBattle.user1Health || 100, getMaxHealth(currentBattle.user1?.attributes?.defense || 0))}%` 
+                          }}
+                        ></div>
+                      </div>
+                    </div>
+                    
                     <div className="space-y-2">
                       <div className="flex justify-between">
                         <span>⚔️ Attack:</span>
@@ -1345,6 +1725,23 @@ export default function Home() {
                     <p className="font-mono text-sm text-gray-600 mb-2">
                       {currentBattle.user2?.walletAddress || 'Unknown'}
                     </p>
+                    
+                    {/* Health Bar */}
+                    <div className="mb-3">
+                      <div className="flex justify-between text-xs text-gray-600 mb-1">
+                        <span>❤️ HP</span>
+                        <span>{currentBattle.user2Health || 100}/{getMaxHealth(currentBattle.user2?.attributes?.defense || 0)}</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div 
+                          className={`h-2 rounded-full transition-all duration-300 ${getHealthColor(getHealthPercentage(currentBattle.user2Health || 100, getMaxHealth(currentBattle.user2?.attributes?.defense || 0)))}`}
+                          style={{ 
+                            width: `${getHealthPercentage(currentBattle.user2Health || 100, getMaxHealth(currentBattle.user2?.attributes?.defense || 0))}%` 
+                          }}
+                        ></div>
+                      </div>
+                    </div>
+                    
                     <div className="space-y-2">
                       <div className="flex justify-between">
                         <span>⚔️ Attack:</span>
@@ -1367,72 +1764,291 @@ export default function Home() {
             {/* Turn Indicator */}
             <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-4 mb-6 text-center">
               <h3 className="text-xl font-bold mb-2">
-                {currentTurn === 'user1' ? '🔄 User 1\'s Turn' : '🔄 User 2\'s Turn'}
+                {battlePhase === 'action-selection' ? '🎯 Choose Your Action' : 
+                 battlePhase === 'battle-resolution' ? '⚔️ Battle Resolved!' : 
+                 battlePhase === 'completed' ? '🏆 Battle Complete!' :
+                 currentBattle?.status === 'active' ? '🎯 Battle Ready - Choose Your Action' :
+                 '⏳ Waiting for Battle'}
               </h3>
+              
+              {/* Battle Resolution Status */}
+              {currentBattle?.user1Action && currentBattle?.user2Action && battlePhase === 'action-selection' && (
+                <div className="bg-orange-100 border-2 border-orange-300 rounded-lg p-3 mb-3">
+                  <h4 className="text-lg font-bold text-orange-700 mb-2">⚔️ Battle Resolving!</h4>
+                  <p className="text-orange-600 text-sm">
+                    Both players have submitted actions. Battle is being processed...
+                  </p>
+                  <div className="flex justify-center mt-2">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-orange-600"></div>
+                  </div>
+                </div>
+              )}
+              
               <p className="text-gray-700">
-                {isUserTurn()
-                  ? '🎯 It\'s your turn! Choose an action below.'
-                  : '⏳ Waiting for opponent to make their move...'
+                {battlePhase === 'action-selection' 
+                  ? 'Both players choose actions simultaneously. Battle resolves when both actions are submitted.' 
+                  : battlePhase === 'battle-resolution'
+                  ? 'Battle has been resolved! Check the battle log below.'
+                  : battlePhase === 'completed'
+                  ? `Battle is complete! ${currentBattle?.user1Health <= 0 ? 'User2' : 'User1'} wins!`
+                  : currentBattle?.status === 'active'
+                  ? 'Both players are ready! Choose your actions simultaneously. Battle resolves when both actions are submitted.'
+                  : 'Waiting for both players to be ready...'
                 }
               </p>
-              <p className="text-sm text-gray-600 mt-2">
-                Current Turn: {currentTurn === 'user1' ? currentBattle.user1?.walletAddress?.substring(0, 10) + '...' : currentBattle.user2?.walletAddress?.substring(0, 10) + '...'}
-              </p>
+              
+              {/* Round Counter */}
+              <div className="mt-4 bg-white p-3 rounded border">
+                <h4 className="font-medium text-sm mb-2">Current Round</h4>
+                <p className="text-2xl font-bold text-blue-600">
+                  {currentBattle?.currentRound || 1}
+                </p>
+              </div>
+              
+              {/* Action Status */}
+              <div className="mt-4 grid grid-cols-2 gap-4">
+                <div className="bg-white p-3 rounded border">
+                  <h4 className="font-medium text-sm mb-2">Your Action</h4>
+                  <p className={`text-lg font-bold ${
+                    userAction ? 'text-green-600' : 'text-gray-500'
+                  }`}>
+                    {userAction || 'Not chosen'}
+                  </p>
+                </div>
+                <div className="bg-white p-3 rounded border">
+                  <h4 className="font-medium text-sm mb-2">Opponent Action</h4>
+                  <p className={`text-lg font-bold ${
+                    currentBattle?.user1Action && currentBattle?.user2Action ? 'text-green-600' : 'text-gray-500'
+                  }`}>
+                    {currentBattle?.user1Action && currentBattle?.user2Action ? 
+                      (currentBattle.user1?.walletAddress === currentWalletAddress ? 
+                        currentBattle.user2Action : currentBattle.user1Action) : 
+                      (currentBattle?.user1?.walletAddress === currentWalletAddress ? 
+                        currentBattle?.user2Action : currentBattle?.user1Action) || 'Not chosen'}
+                  </p>
+                </div>
+              </div>
+              
+              {/* Both Actions Submitted Indicator */}
+              {currentBattle?.user1Action && currentBattle?.user2Action && (
+                <div className="mt-3 bg-green-100 border-2 border-green-300 rounded-lg p-3 text-center">
+                  <h4 className="font-medium text-green-700 mb-1">✅ Both Actions Submitted!</h4>
+                  <p className="text-sm text-green-600">
+                    Battle will resolve automatically in a few seconds...
+                  </p>
+                </div>
+              )}
+              
+              {/* Battle Phase Status */}
+              <div className="mt-3 text-sm text-gray-600">
+                <p>Battle Phase: <span className="font-semibold capitalize">{(battlePhase || 'waiting').replace('-', ' ')}</span></p>
+                <p>Session Status: <span className="font-semibold">{currentBattle?.status || 'unknown'}</span></p>
+                <p>User Action: <span className="font-semibold">{userAction || 'none'}</span></p>
+                <p>User1 Action: <span className="font-semibold">{currentBattle?.user1Action || 'none'}</span></p>
+                <p>User2 Action: <span className="font-semibold">{currentBattle?.user2Action || 'none'}</span></p>
+                <p>Current User: <span className="font-semibold">{currentBattle?.user1?.walletAddress === currentWalletAddress ? 'User1' : 'User2'}</span></p>
+                {battlePhase === 'battle-resolution' && (
+                  <button
+                    onClick={resetBattle}
+                    disabled={loading}
+                    className="mt-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {loading ? 'Resetting...' : '🔄 Reset for Next Round'}
+                  </button>
+                )}
+                {battlePhase === 'completed' && (
+                  <div className="mt-2 space-y-2">
+                    <button
+                      onClick={resetBattle}
+                      disabled={loading}
+                      className="w-full px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
+                    >
+                      {loading ? 'Starting...' : '🎯 Start New Battle'}
+                    </button>
+                    <p className="text-sm text-gray-600">
+                      Click to start a new battle with full health!
+                    </p>
+                  </div>
+                )}
+                {/* Manual reset button for stuck situations */}
+                {(battlePhase === 'action-selection' && userAction && 
+                  currentBattle?.user1Action && currentBattle?.user2Action) && (
+                  <div className="mt-2 space-y-2">
+                    <button
+                      onClick={resetBattle}
+                      disabled={loading}
+                      className="w-full px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700 disabled:opacity-50"
+                    >
+                      {loading ? 'Resetting...' : '⚠️ Manual Reset (if stuck)'}
+                    </button>
+                    <button
+                      onClick={forceRoundTransition}
+                      disabled={loading}
+                      className="w-full px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700 disabled:opacity-50"
+                    >
+                      {loading ? 'Processing...' : '🚀 Force Round Transition'}
+                    </button>
+                  </div>
+                )}
+                
+                {/* Manual clear action button */}
+                {battlePhase === 'action-selection' && userAction && 
+                  (currentBattle?.user1Action === '' || currentBattle?.user2Action === '') && (
+                  <div className="mt-2">
+                    <button
+                      onClick={forceClearUserAction}
+                      className="w-full px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
+                    >
+                      🔄 Clear My Action (if stuck)
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Battle Actions */}
             <div className="bg-gray-50 rounded-lg p-6">
               <h3 className="text-xl font-bold mb-4 text-center">Battle Actions</h3>
+              
+              {/* Debug info */}
+              <div className="text-xs text-gray-500 mb-4 p-2 bg-gray-100 rounded">
+                <p>Debug: Battle Phase: {battlePhase}</p>
+                <p>Debug: User Action: {userAction || 'empty'}</p>
+                <p>Debug: Session Status: {currentBattle?.status}</p>
+                <p>Debug: Can Submit: {((battlePhase === 'action-selection' || (currentBattle?.status === 'active' && !battlePhase)) && !userAction && !loading) ? 'Yes' : 'No'}</p>
+                <p>Debug: User1 Health: {currentBattle?.user1Health || 100}/{getMaxHealth(currentBattle?.user1?.attributes?.defense || 0)}</p>
+                <p>Debug: User2 Health: {currentBattle?.user2Health || 100}/{getMaxHealth(currentBattle?.user2?.attributes?.defense || 0)}</p>
+                <p>Debug: Actions Reset: {currentBattle?.user1Action === '' && currentBattle?.user2Action === '' ? 'Yes' : 'No'}</p>
+                <p>Debug: Round: {currentBattle?.currentRound || 1}</p>
+                <p>Debug: Both Actions Submitted: {(currentBattle?.user1Action && currentBattle?.user2Action) ? 'Yes' : 'No'}</p>
+                <p>Debug: Current User Role: {currentBattle?.user1?.walletAddress === currentWalletAddress ? 'user1' : 'user2'}</p>
+                <p>Debug: Current User Action Field: {currentBattle?.user1?.walletAddress === currentWalletAddress ? 'user1Action' : 'user2Action'}</p>
+                <p>Debug: Current Wallet: {currentWalletAddress}</p>
+                <p>Debug: User1 Wallet: {currentBattle?.user1?.walletAddress}</p>
+                <p>Debug: User2 Wallet: {currentBattle?.user2?.walletAddress}</p>
+                <p>Debug: Is User1: {currentBattle?.user1?.walletAddress === currentWalletAddress ? 'Yes' : 'No'}</p>
+                <p>Debug: Is User2: {currentBattle?.user2?.walletAddress === currentWalletAddress ? 'Yes' : 'No'}</p>
+                <p>Debug: User1 Action: {currentBattle?.user1Action || 'none'}</p>
+                <p>Debug: User2 Action: {currentBattle?.user2Action || 'none'}</p>
+                <p>Debug: Opponent Action (for current user): {currentBattle?.user1?.walletAddress === currentWalletAddress ? 
+                  (currentBattle?.user2Action || 'none') : (currentBattle?.user1Action || 'none')}</p>
+              </div>
+              
+              {battlePhase === 'action-selection' && !userAction ? (
+                <div className="text-center mb-4">
+                  <p className="text-green-600 font-medium">🎯 Choose your action below:</p>
+                </div>
+              ) : battlePhase === 'action-selection' && userAction ? (
+                <div className="text-center mb-4">
+                  <p className="text-blue-600 font-medium">✅ Action submitted: <span className="font-bold">{userAction}</span></p>
+                  <p className="text-sm text-gray-600">Waiting for opponent to choose their action...</p>
+                  <button
+                    onClick={forceClearUserAction}
+                    className="mt-2 px-4 py-2 bg-orange-500 text-white rounded hover:bg-orange-600 text-sm"
+                  >
+                    🔄 Change My Action
+                  </button>
+                </div>
+              ) : battlePhase === 'battle-resolution' ? (
+                <div className="text-center mb-4">
+                  <p className="text-purple-600 font-medium">⚔️ Battle resolved! Check the battle log below.</p>
+                  {userAction && (
+                    <p className="text-sm text-gray-600 mt-1">Your action: <span className="font-semibold">{userAction}</span></p>
+                  )}
+                </div>
+              ) : currentBattle?.status === 'active' && !battlePhase ? (
+                <div className="text-center mb-4">
+                  <p className="text-green-600 font-medium">🎯 Battle is ready! Choose your action below:</p>
+                </div>
+              ) : (
+                <div className="text-center mb-4">
+                  <p className="text-gray-600">Battle not ready yet...</p>
+                </div>
+              )}
+              
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <button
                   onClick={performAttack}
-                  disabled={!isUserTurn() || loading}
-                  className={`px-6 py-3 rounded-lg font-bold text-lg transition-all duration-200 ${isUserTurn() && !loading
-                    ? 'bg-red-600 text-white hover:bg-red-700 cursor-pointer'
-                    : 'bg-gray-400 text-gray-200 cursor-not-allowed opacity-50'
-                    }`}
+                  disabled={!((battlePhase === 'action-selection' || (currentBattle?.status === 'active' && !battlePhase)) && !userAction && !loading) || userAction || loading || battlePhase === 'completed'}
+                  className={`px-6 py-3 rounded-lg font-bold text-lg transition-all duration-200 ${
+                    (battlePhase === 'action-selection' || (currentBattle?.status === 'active' && !battlePhase)) && !userAction && !loading && battlePhase !== 'completed'
+                      ? 'bg-red-600 text-white hover:bg-red-700 cursor-pointer'
+                      : 'bg-gray-400 text-gray-200 cursor-not-allowed opacity-50'
+                  }`}
                 >
                   ⚔️ Attack
                 </button>
                 <button
                   onClick={performDefense}
-                  disabled={!isUserTurn() || loading}
-                  className={`px-6 py-3 rounded-lg font-bold text-lg transition-all duration-200 ${isUserTurn() && !loading
-                    ? 'bg-blue-600 text-white hover:bg-blue-700 cursor-pointer'
-                    : 'bg-gray-400 text-gray-200 cursor-not-allowed opacity-50'
-                    }`}
+                  disabled={!((battlePhase === 'action-selection' || (currentBattle?.status === 'active' && !battlePhase)) && !userAction && !loading) || userAction || loading || battlePhase === 'completed'}
+                  className={`px-6 py-3 rounded-lg font-bold text-lg transition-all duration-200 ${
+                    (battlePhase === 'action-selection' || (currentBattle?.status === 'active' && !battlePhase)) && !userAction && !loading && battlePhase !== 'completed'
+                      ? 'bg-blue-600 text-white hover:bg-blue-700 cursor-pointer'
+                      : 'bg-gray-400 text-gray-200 cursor-not-allowed opacity-50'
+                  }`}
                 >
                   🛡️ Defense
                 </button>
                 <button
                   onClick={performSpecial}
-                  disabled={!isUserTurn() || loading}
-                  className={`px-6 py-3 rounded-lg font-bold text-lg transition-all duration-200 ${isUserTurn() && !loading
-                    ? 'bg-purple-600 text-white hover:bg-purple-700 cursor-pointer'
-                    : 'bg-gray-400 text-gray-200 cursor-not-allowed opacity-50'
-                    }`}
+                  disabled={!((battlePhase === 'action-selection' || (currentBattle?.status === 'active' && !battlePhase)) && !userAction && !loading) || userAction || loading || battlePhase === 'completed'}
+                  className={`px-6 py-3 rounded-lg font-bold text-lg transition-all duration-200 ${
+                    (battlePhase === 'action-selection' || (currentBattle?.status === 'active' && !battlePhase)) && !userAction && !loading && battlePhase !== 'completed'
+                      ? 'bg-purple-600 text-white hover:bg-purple-700 cursor-pointer'
+                      : 'bg-gray-400 text-gray-200 cursor-not-allowed opacity-50'
+                  }`}
                 >
                   ✨ Special
                 </button>
                 <button
                   onClick={fleeBattle}
-                  disabled={!isUserTurn() || loading}
-                  className={`px-6 py-3 rounded-lg font-bold text-lg transition-all duration-200 ${isUserTurn() && !loading
-                    ? 'bg-gray-600 text-white hover:bg-gray-700 cursor-pointer'
-                    : 'bg-gray-400 text-gray-200 cursor-not-allowed opacity-50'
-                    }`}
+                  disabled={!((battlePhase === 'action-selection' || (currentBattle?.status === 'active' && !battlePhase)) && !userAction && !loading) || userAction || loading || battlePhase === 'completed'}
+                  className={`px-6 py-3 rounded-lg font-bold text-lg transition-all duration-200 ${
+                    (battlePhase === 'action-selection' || (currentBattle?.status === 'active' && !battlePhase)) && !userAction && !loading && battlePhase !== 'completed'
+                      ? 'bg-gray-600 text-white hover:bg-gray-700 cursor-pointer'
+                      : 'bg-gray-400 text-gray-200 cursor-not-allowed opacity-50'
+                  }`}
                 >
                   🏃‍♂️ Flee
                 </button>
+              </div>
+              
+              {/* Additional debug info for action buttons */}
+              <div className="mt-4 text-xs text-gray-500 p-2 bg-gray-100 rounded">
+                <p>Action Button Debug:</p>
+                <p>Battle Phase: {battlePhase}</p>
+                <p>Session Status: {currentBattle?.status}</p>
+                <p>User Action: {userAction || 'none'}</p>
+                <p>Loading: {loading ? 'Yes' : 'No'}</p>
+                <p>Battle Completed: {battlePhase === 'completed' ? 'Yes' : 'No'}</p>
+                <p>Can Submit Actions: {((battlePhase === 'action-selection' || (currentBattle?.status === 'active' && !battlePhase)) && !userAction && !loading && battlePhase !== 'completed') ? 'Yes' : 'No'}</p>
               </div>
             </div>
 
             {/* Battle Log */}
             <div className="mt-6 bg-black text-green-400 rounded-lg p-4 font-mono text-sm">
               <h4 className="text-white mb-2">Battle Log:</h4>
-              {battleLog.map((log, index) => (
-                <p key={index}>{log}</p>
-              ))}
+              {battleLog.length === 0 ? (
+                <p className="text-gray-500">No battle activity yet...</p>
+              ) : (
+                battleLog.map((log, index) => (
+                  <div key={index} className="mb-1">
+                    {log.startsWith('🎯 Round') ? (
+                      <span className="text-yellow-400 font-bold">{log}</span>
+                    ) : log.includes('wins this round') ? (
+                      <span className="text-yellow-400 font-bold">{log}</span>
+                    ) : log.includes('Battle resolved') ? (
+                      <span className="text-cyan-400">{log}</span>
+                    ) : log.includes('damage') ? (
+                      <span className="text-red-400 font-semibold">{log}</span>
+                    ) : log.includes('Battle is complete') ? (
+                      <span className="text-yellow-400 font-bold text-lg">{log}</span>
+                    ) : (
+                      <span>{log}</span>
+                    )}
+                  </div>
+                ))
+              )}
             </div>
           </div>
         )}
