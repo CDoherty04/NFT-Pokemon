@@ -25,12 +25,12 @@ const SessionSchema = new mongoose.Schema({
     user1: {
         walletAddress: String,
         image: String,
-        attributes: String
+        attributes: mongoose.Schema.Types.Mixed
     },
     user2: {
         walletAddress: String,
         image: String,
-        attributes: String
+        attributes: mongoose.Schema.Types.Mixed
     },
     status: {
         type: String,
@@ -65,6 +65,52 @@ SessionSchema.methods.updateLastActivity = function() {
     return this.save();
 };
 
+// Helper function to normalize attributes
+const normalizeAttributes = (attributes) => {
+    if (typeof attributes === 'object' && attributes !== null) {
+        // Ensure attributes object has the expected structure
+        return {
+            attack: parseInt(attributes.attack) || 0,
+            defense: parseInt(attributes.defense) || 0,
+            speed: parseInt(attributes.speed) || 0
+        };
+    } else if (typeof attributes === 'string') {
+        // Handle legacy string format - try to parse as JSON or use default
+        try {
+            const parsed = JSON.parse(attributes);
+            if (parsed && typeof parsed === 'object') {
+                return {
+                    attack: parseInt(parsed.attack) || 0,
+                    defense: parseInt(parsed.defense) || 0,
+                    speed: parseInt(parsed.speed) || 0
+                };
+            }
+        } catch (e) {
+            // If parsing fails, use default attributes
+            return { attack: 1, defense: 1, speed: 1 };
+        }
+    }
+    // Default attributes if none provided
+    return { attack: 1, defense: 1, speed: 1 };
+};
+
+// Helper function to check if attributes are empty
+const areAttributesEmpty = (attributes) => {
+    if (!attributes) return true;
+    
+    if (typeof attributes === 'string') {
+        return attributes.trim() === '';
+    }
+    
+    if (typeof attributes === 'object' && attributes !== null) {
+        return (attributes.attack === 0 || attributes.attack === undefined) &&
+               (attributes.defense === 0 || attributes.defense === undefined) &&
+               (attributes.speed === 0 || attributes.speed === undefined);
+    }
+    
+    return true;
+};
+
 // Check if model already exists before creating it
 const Session = mongoose.models.Session || mongoose.model('Session', SessionSchema);
 
@@ -73,16 +119,19 @@ const createSession = async (user1, status = 'waiting') => {
     try {
         console.log('Creating session with user1:', user1);
         
+        // Validate and normalize attributes
+        const normalizedAttributes = normalizeAttributes(user1.attributes);
+        
         const session = new Session({
             user1: {
                 walletAddress: user1.walletAddress,
                 image: user1.image,
-                attributes: user1.attributes
+                attributes: normalizedAttributes
             },
             user2: {
                 walletAddress: '',
                 image: '',
-                attributes: ''
+                attributes: { attack: 0, defense: 0, speed: 0 }
             },
             status: status,
             sessionId: `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -112,7 +161,23 @@ const isSessionAvailable = async (sessionId) => {
         if (!session) return false;
         
         // Check if user2 is actually empty (no wallet address, image, or attributes)
-        return !(session.user2 && (session.user2.walletAddress || session.user2.image || session.user2.attributes));
+        if (session.user2 && session.user2.walletAddress) {
+            console.log('Session not available - has user2 wallet address:', session.user2.walletAddress);
+            return false;
+        }
+        if (session.user2 && session.user2.image) {
+            console.log('Session not available - has user2 image:', session.user2.image);
+            return false;
+        }
+        
+        // Check attributes - handle both old string format and new object format
+        if (session.user2 && session.user2.attributes && !areAttributesEmpty(session.user2.attributes)) {
+            console.log('Session not available - has user2 attributes:', session.user2.attributes);
+            return false;
+        }
+        
+        console.log('Session is available for joining');
+        return true;
     } catch (error) {
         console.error('Error checking session availability:', error);
         throw error;
@@ -129,11 +194,28 @@ const joinSession = async (sessionId, user2) => {
             throw new Error('Session not found');
         }
         
+        console.log('Session found:', {
+            sessionId: session.sessionId,
+            status: session.status,
+            isActive: session.isActive,
+            user2: session.user2
+        });
+        
         if (!session.isActive) {
             throw new Error('Session is not active');
         }
         
-        if (session.user2 && (session.user2.walletAddress || session.user2.image || session.user2.attributes)) {
+        // Check if user2 is already filled
+        if (session.user2 && session.user2.walletAddress) {
+            console.log('Session has user2 wallet address:', session.user2.walletAddress);
+            throw new Error('Session is already full');
+        }
+        if (session.user2 && session.user2.image) {
+            console.log('Session has user2 image:', session.user2.image);
+            throw new Error('Session is already full');
+        }
+        if (session.user2 && session.user2.attributes && !areAttributesEmpty(session.user2.attributes)) {
+            console.log('Session has user2 attributes:', session.user2.attributes);
             throw new Error('Session is already full');
         }
         
@@ -145,6 +227,9 @@ const joinSession = async (sessionId, user2) => {
             throw new Error('User cannot join their own session');
         }
         
+        // Validate and normalize user2 attributes
+        const normalizedAttributes = normalizeAttributes(user2.attributes);
+        
         // Update the session with user2 and change status to active
         const updatedSession = await Session.findOneAndUpdate(
             { sessionId: sessionId },
@@ -153,7 +238,7 @@ const joinSession = async (sessionId, user2) => {
                     user2: {
                         walletAddress: user2.walletAddress,
                         image: user2.image,
-                        attributes: user2.attributes
+                        attributes: normalizedAttributes
                     },
                     status: 'active',
                     updatedAt: new Date()
@@ -203,9 +288,17 @@ const getWaitingSessions = async () => {
         });
         
         // Filter out sessions that actually have user2 data
-        return sessions.filter(session => 
-            !(session.user2 && (session.user2.walletAddress || session.user2.image || session.user2.attributes))
-        );
+        return sessions.filter(session => {
+            if (session.user2 && session.user2.walletAddress) return false;
+            if (session.user2 && session.user2.image) return false;
+            
+            // Check attributes - handle both old string format and new object format
+            if (session.user2 && session.user2.attributes && !areAttributesEmpty(session.user2.attributes)) {
+                return false;
+            }
+            
+            return true;
+        });
     } catch (error) {
         console.error('Error getting waiting sessions:', error);
         throw error;
@@ -259,6 +352,55 @@ const getAllSessions = async () => {
     }
 };
 
+// Migration function to convert existing string attributes to object format
+const migrateAttributes = async () => {
+    try {
+        console.log('Starting attributes migration...');
+        
+        // Find all sessions with string attributes
+        const sessionsToMigrate = await Session.find({
+            $or: [
+                { 'user1.attributes': { $type: 'string' } },
+                { 'user2.attributes': { $type: 'string' } }
+            ]
+        });
+        
+        console.log(`Found ${sessionsToMigrate.length} sessions to migrate`);
+        
+        let migratedCount = 0;
+        for (const session of sessionsToMigrate) {
+            let needsUpdate = false;
+            const updateData = {};
+            
+            // Check user1 attributes
+            if (typeof session.user1.attributes === 'string') {
+                updateData['user1.attributes'] = normalizeAttributes(session.user1.attributes);
+                needsUpdate = true;
+            }
+            
+            // Check user2 attributes
+            if (typeof session.user2.attributes === 'string') {
+                updateData['user2.attributes'] = normalizeAttributes(session.user2.attributes);
+                needsUpdate = true;
+            }
+            
+            if (needsUpdate) {
+                await Session.updateOne(
+                    { _id: session._id },
+                    { $set: updateData }
+                );
+                migratedCount++;
+            }
+        }
+        
+        console.log(`Successfully migrated ${migratedCount} sessions`);
+        return migratedCount;
+    } catch (error) {
+        console.error('Error during attributes migration:', error);
+        throw error;
+    }
+};
+
 // Expose the session management functions
 module.exports = {
     createSession,
@@ -269,5 +411,6 @@ module.exports = {
     getWaitingSessions,
     updateSessionStatus,
     deleteSession,
-    getAllSessions
+    getAllSessions,
+    migrateAttributes
 };

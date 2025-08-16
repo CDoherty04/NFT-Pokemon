@@ -7,10 +7,12 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test-db": "node scripts/test-database.js"
+    "test-db": "node scripts/test-database.js",
+    "migrate": "node scripts/migrate-attributes.js"
   },
   "dependencies": {
     "dotenv": "^16.3.1",
+    "lucide-react": "^0.539.0",
     "mongodb": "^6.3.0",
     "mongoose": "^8.17.1",
     "next": "15.4.6",

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { RefreshCcw as RefreshCcwIcon } from 'lucide-react';
 
 export default function Home() {
   const [sessions, setSessions] = useState([]);
@@ -11,31 +12,22 @@ export default function Home() {
   
   // Form data for creating a session
   const [createFormData, setCreateFormData] = useState({
-    user1: { walletAddress: '', image: '', attributes: '' }
+    user1: { 
+      walletAddress: '', 
+      image: '', 
+      attributes: { attack: 1, defense: 1, speed: 1 } 
+    }
   });
 
   // Form data for joining a session
   const [joinFormData, setJoinFormData] = useState({
     sessionId: '',
-    user2: { walletAddress: '', image: '', attributes: '' }
-  });
-
-  // Test database connection
-  const testConnection = async () => {
-    setLoading(true);
-    try {
-      const response = await fetch('/api/sessions');
-      if (response.ok) {
-        setMessage('✅ Database connection successful!');
-      } else {
-        setMessage('❌ Database connection failed');
-      }
-    } catch (error) {
-      setMessage('❌ Error: ' + error.message);
-    } finally {
-      setLoading(false);
+    user2: { 
+      walletAddress: '', 
+      image: '', 
+      attributes: { attack: 1, defense: 1, speed: 1 } 
     }
-  };
+  });
 
   // Create a new session with only user1
   const createSession = async () => {
@@ -56,7 +48,11 @@ export default function Home() {
       if (data.success) {
         setMessage(`✅ Session created! ID: ${data.session.sessionId} - Share this ID with user2 to join`);
         setCreateFormData({
-          user1: { walletAddress: '', image: '', attributes: '' }
+          user1: { 
+            walletAddress: '', 
+            image: '', 
+            attributes: { attack: 1, defense: 1, speed: 1 } 
+          }
         });
         fetchSessions();
         fetchWaitingSessions();
@@ -91,7 +87,11 @@ export default function Home() {
         setMessage(`✅ Successfully joined session! Session is now active`);
         setJoinFormData({
           sessionId: '',
-          user2: { walletAddress: '', image: '', attributes: '' }
+          user2: { 
+            walletAddress: '', 
+            image: '', 
+            attributes: { attack: 1, defense: 1, speed: 1 } 
+          }
         });
         fetchSessions();
         fetchWaitingSessions();
@@ -139,94 +139,6 @@ export default function Home() {
     }
   };
 
-  // Update session status
-  const updateStatus = async (sessionId, newStatus) => {
-    try {
-      const response = await fetch(`/api/sessions/${sessionId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus })
-      });
-      const data = await response.json();
-      
-      if (data.success) {
-        setMessage(`✅ Status updated to: ${newStatus}`);
-        fetchSessions();
-        fetchWaitingSessions();
-      } else {
-        setMessage('❌ Error updating status: ' + data.error);
-      }
-    } catch (error) {
-      setMessage('❌ Error: ' + error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Delete session
-  const deleteSession = async (sessionId) => {
-    if (!confirm('Delete this session?')) return;
-    
-    try {
-      const response = await fetch(`/api/sessions/${sessionId}`, {
-        method: 'DELETE'
-      });
-      const data = await response.json();
-      
-      if (data.success) {
-        setMessage('✅ Session deleted');
-        fetchSessions();
-        fetchWaitingSessions();
-      } else {
-        setMessage('❌ Error deleting: ' + data.error);
-      }
-    } catch (error) {
-      setMessage('❌ Error: ' + error.message);
-    }
-  };
-
-  // Load demo data for creating session
-  const loadCreateDemo = () => {
-    setCreateFormData({
-      user1: { 
-        walletAddress: '0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6', 
-        image: 'https://example.com/user1.jpg', 
-        attributes: '{"rarity": "legendary", "level": 99}' 
-      }
-    });
-    setMessage('📝 Demo data loaded for creating session - click Create Session to test');
-  };
-
-  // Load demo data for joining session
-  const loadJoinDemo = () => {
-    setJoinFormData({
-      sessionId: 'session_1234567890_abc123def',
-      user2: { 
-        walletAddress: '0x8ba1f109551bD432803012645Hac136c772c3c7c', 
-        image: 'https://example.com/user2.jpg', 
-        attributes: '{"rarity": "epic", "level": 85}' 
-      }
-    });
-    setMessage('📝 Demo data loaded for joining session - click Join Session to test');
-  };
-
-  // Clear create form
-  const clearCreateForm = () => {
-    setCreateFormData({
-      user1: { walletAddress: '', image: '', attributes: '' }
-    });
-    setMessage('🧹 Create form cleared');
-  };
-
-  // Clear join form
-  const clearJoinForm = () => {
-    setJoinFormData({
-      sessionId: '',
-      user2: { walletAddress: '', image: '', attributes: '' }
-    });
-    setMessage('🧹 Join form cleared');
-  };
-
   // Copy session ID to clipboard
   const copySessionId = (sessionId) => {
     navigator.clipboard.writeText(sessionId);
@@ -234,22 +146,12 @@ export default function Home() {
   };
 
   useEffect(() => {
-    testConnection();
     fetchWaitingSessions();
   }, []);
 
   return (
     <div className="min-h-screen bg-gray-50 p-4">
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-3xl font-bold text-center mb-8">🎮 NFT Pokemon Session Manager</h1>
-        
-        {/* Status Message */}
-        {message && (
-          <div className="mb-6 p-3 bg-blue-50 border border-blue-200 rounded text-center">
-            <span className="text-blue-800">{message}</span>
-          </div>
-        )}
-
         {/* Tab Navigation */}
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <div className="flex flex-wrap gap-2 mb-4">
@@ -261,7 +163,7 @@ export default function Home() {
                   : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
               }`}
             >
-              Create Session
+              Start Battle
             </button>
             <button
               onClick={() => setActiveTab('join')}
@@ -271,7 +173,7 @@ export default function Home() {
                   : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
               }`}
             >
-              Join Session
+              Join Battle
             </button>
             <button
               onClick={() => setActiveTab('sessions')}
@@ -281,7 +183,7 @@ export default function Home() {
                   : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
               }`}
             >
-              View Sessions ({sessions.length})
+              View Active Battles ({sessions.length})
             </button>
             <button
               onClick={() => setActiveTab('waiting')}
@@ -291,25 +193,18 @@ export default function Home() {
                   : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
               }`}
             >
-              Waiting Sessions ({waitingSessions.length})
+              View Pending Battles ({waitingSessions.length})
             </button>
           </div>
 
-          {/* Test Controls */}
+          {/* Refresh Button */}
           <div className="flex flex-wrap gap-3">
-            <button
-              onClick={testConnection}
-              disabled={loading}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-            >
-              Test Connection
-            </button>
             <button
               onClick={fetchSessions}
               disabled={loading}
               className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
             >
-              Refresh Sessions
+              <RefreshCcwIcon className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -323,7 +218,7 @@ export default function Home() {
             </p>
             
             <div className="mb-4">
-              <h3 className="font-medium mb-2">Your Pokemon (User 1)</h3>
+              <h3 className="font-medium mb-2">Your Pokemon</h3>
               <input
                 type="text"
                 placeholder="Wallet Address"
@@ -344,31 +239,118 @@ export default function Home() {
                 })}
                 className="w-full p-2 border rounded mb-2"
               />
-              <textarea
-                placeholder="Attributes (JSON format)"
-                value={createFormData.user1.attributes}
-                onChange={(e) => setCreateFormData({
-                  ...createFormData,
-                  user1: { ...createFormData.user1, attributes: e.target.value }
-                })}
-                className="w-full p-2 border rounded"
-                rows="3"
-              />
+              
+              <div className="mb-4">
+                <h4 className="font-medium mb-3">Attribute Points (3 total points to allocate)</h4>
+                
+                {/* Progress bar showing allocated points */}
+                <div className="mb-4">
+                  <div className="flex justify-between text-sm text-gray-600 mb-2">
+                    <span>Allocated: {createFormData.user1.attributes.attack + createFormData.user1.attributes.defense + createFormData.user1.attributes.speed}/3</span>
+                    <span>Remaining: {3 - createFormData.user1.attributes.attack - createFormData.user1.attributes.defense - createFormData.user1.attributes.speed}</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-3">
+                    <div 
+                      className="bg-blue-600 h-3 rounded-full transition-all duration-300"
+                      style={{ 
+                        width: `${((createFormData.user1.attributes.attack + createFormData.user1.attributes.defense + createFormData.user1.attributes.speed) / 3) * 100}%` 
+                      }}
+                    ></div>
+                  </div>
+                </div>
+                
+                <div className="space-y-3">
+                  <div>
+                    <label className="flex justify-between items-center">
+                      <span>Attack: {createFormData.user1.attributes.attack}</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="3"
+                      value={createFormData.user1.attributes.attack}
+                      onChange={(e) => {
+                        const newAttack = parseInt(e.target.value);
+                        const currentTotal = createFormData.user1.attributes.defense + createFormData.user1.attributes.speed;
+                        if (newAttack + currentTotal <= 3) {
+                          setCreateFormData({
+                            ...createFormData,
+                            user1: {
+                              ...createFormData.user1,
+                              attributes: {
+                                ...createFormData.user1.attributes,
+                                attack: newAttack
+                              }
+                            }
+                          });
+                        }
+                      }}
+                      className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="flex justify-between items-center">
+                      <span>Defense: {createFormData.user1.attributes.defense}</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="3"
+                      value={createFormData.user1.attributes.defense}
+                      onChange={(e) => {
+                        const newDefense = parseInt(e.target.value);
+                        const currentTotal = createFormData.user1.attributes.attack + createFormData.user1.attributes.speed;
+                        if (newDefense + currentTotal <= 3) {
+                          setCreateFormData({
+                            ...createFormData,
+                            user1: {
+                              ...createFormData.user1,
+                              attributes: {
+                                ...createFormData.user1.attributes,
+                                defense: newDefense
+                              }
+                            }
+                          });
+                        }
+                      }}
+                      className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="flex justify-between items-center">
+                      <span>Speed: {createFormData.user1.attributes.speed}</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="3"
+                      value={createFormData.user1.attributes.speed}
+                      onChange={(e) => {
+                        const newSpeed = parseInt(e.target.value);
+                        const currentTotal = createFormData.user1.attributes.attack + createFormData.user1.attributes.defense;
+                        if (newSpeed + currentTotal <= 3) {
+                          setCreateFormData({
+                            ...createFormData,
+                            user1: {
+                              ...createFormData.user1,
+                              attributes: {
+                                ...createFormData.user1.attributes,
+                                speed: newSpeed
+                              }
+                            }
+                          });
+                        }
+                      }}
+                      className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
             
             <div className="flex items-center gap-4">
-              <button
-                onClick={loadCreateDemo}
-                className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
-              >
-                Load Demo
-              </button>
-              <button
-                onClick={clearCreateForm}
-                className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
-              >
-                Clear Form
-              </button>
               <button
                 onClick={createSession}
                 disabled={loading}
@@ -422,31 +404,118 @@ export default function Home() {
                 })}
                 className="w-full p-2 border rounded mb-2"
               />
-              <textarea
-                placeholder="Attributes (JSON format)"
-                value={joinFormData.user2.attributes}
-                onChange={(e) => setJoinFormData({
-                  ...joinFormData,
-                  user2: { ...joinFormData.user2, attributes: e.target.value }
-                })}
-                className="w-full p-2 border rounded"
-                rows="3"
-              />
+              
+              <div className="mb-4">
+                <h4 className="font-medium mb-3">Attribute Points (3 total points to allocate)</h4>
+                
+                {/* Progress bar showing allocated points */}
+                <div className="mb-4">
+                  <div className="flex justify-between text-sm text-gray-600 mb-2">
+                    <span>Allocated: {joinFormData.user2.attributes.attack + joinFormData.user2.attributes.defense + joinFormData.user2.attributes.speed}/3</span>
+                    <span>Remaining: {3 - joinFormData.user2.attributes.attack - joinFormData.user2.attributes.defense - joinFormData.user2.attributes.speed}</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-3">
+                    <div 
+                      className="bg-blue-600 h-3 rounded-full transition-all duration-300"
+                      style={{ 
+                        width: `${((joinFormData.user2.attributes.attack + joinFormData.user2.attributes.defense + joinFormData.user2.attributes.speed) / 3) * 100}%` 
+                      }}
+                    ></div>
+                  </div>
+                </div>
+                
+                <div className="space-y-3">
+                  <div>
+                    <label className="flex justify-between items-center">
+                      <span>Attack: {joinFormData.user2.attributes.attack}</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="3"
+                      value={joinFormData.user2.attributes.attack}
+                      onChange={(e) => {
+                        const newAttack = parseInt(e.target.value);
+                        const currentTotal = joinFormData.user2.attributes.defense + joinFormData.user2.attributes.speed;
+                        if (newAttack + currentTotal <= 3) {
+                          setJoinFormData({
+                            ...joinFormData,
+                            user2: {
+                              ...joinFormData.user2,
+                              attributes: {
+                                ...joinFormData.user2.attributes,
+                                attack: newAttack
+                              }
+                            }
+                          });
+                        }
+                      }}
+                      className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="flex justify-between items-center">
+                      <span>Defense: {joinFormData.user2.attributes.defense}</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="3"
+                      value={joinFormData.user2.attributes.defense}
+                      onChange={(e) => {
+                        const newDefense = parseInt(e.target.value);
+                        const currentTotal = joinFormData.user2.attributes.attack + joinFormData.user2.attributes.speed;
+                        if (newDefense + currentTotal <= 3) {
+                          setJoinFormData({
+                            ...joinFormData,
+                            user2: {
+                              ...joinFormData.user2,
+                              attributes: {
+                                ...joinFormData.user2.attributes,
+                                defense: newDefense
+                              }
+                            }
+                          });
+                        }
+                      }}
+                      className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="flex justify-between items-center">
+                      <span>Speed: {joinFormData.user2.attributes.speed}</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="3"
+                      value={joinFormData.user2.attributes.speed}
+                      onChange={(e) => {
+                        const newSpeed = parseInt(e.target.value);
+                        const currentTotal = joinFormData.user2.attributes.attack + joinFormData.user2.attributes.defense;
+                        if (newSpeed + currentTotal <= 3) {
+                          setJoinFormData({
+                            ...joinFormData,
+                            user2: {
+                              ...joinFormData.user2,
+                              attributes: {
+                                ...joinFormData.user2.attributes,
+                                speed: newSpeed
+                              }
+                            }
+                          });
+                        }
+                      }}
+                      className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
             
             <div className="flex items-center gap-4">
-              <button
-                onClick={loadJoinDemo}
-                className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
-              >
-                Load Demo
-              </button>
-              <button
-                onClick={clearJoinForm}
-                className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
-              >
-                Clear Form
-              </button>
               <button
                 onClick={joinSession}
                 disabled={loading}
@@ -492,7 +561,13 @@ export default function Home() {
                       <h4 className="font-medium mb-2">Host Player</h4>
                       <p className="text-sm"><strong>Wallet:</strong> {session.user1?.walletAddress || 'None'}</p>
                       <p className="text-sm"><strong>Image:</strong> {session.user1?.image || 'None'}</p>
-                      <p className="text-sm"><strong>Attributes:</strong> {session.user1?.attributes || 'None'}</p>
+                      <p className="text-sm"><strong>Attributes:</strong> {session.user1?.attributes ? (
+                        <span className="inline-flex gap-2">
+                          <span className="px-2 py-1 bg-red-100 text-red-800 rounded text-xs">⚔️ ATK: {session.user1.attributes.attack || 0}</span>
+                          <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">🛡️ DEF: {session.user1.attributes.defense || 0}</span>
+                          <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs">⚡ SPD: {session.user1.attributes.speed || 0}</span>
+                        </span>
+                      ) : 'None'}</p>
                     </div>
                     <div className="mt-3 text-xs text-gray-500">
                       <p>Created: {new Date(session.createdAt).toLocaleString()}</p>
@@ -537,44 +612,38 @@ export default function Home() {
                           </button>
                         )}
                       </div>
-                      <div className="flex gap-2">
-                        <select
-                          value={session.status}
-                          onChange={(e) => updateStatus(session.sessionId, e.target.value)}
-                          className="text-xs p-1 border rounded"
-                        >
-                          <option value="waiting">Waiting</option>
-                          <option value="active">Active</option>
-                          <option value="completed">Completed</option>
-                          <option value="ended">Ended</option>
-                        </select>
-                        <button
-                          onClick={() => deleteSession(session.sessionId)}
-                          className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700"
-                        >
-                          Delete
-                        </button>
-                      </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="bg-gray-50 p-3 rounded">
                         <h4 className="font-medium mb-2">User 1 (Host)</h4>
                         <p className="text-sm"><strong>Wallet:</strong> {session.user1?.walletAddress || 'None'}</p>
                         <p className="text-sm"><strong>Image:</strong> {session.user1?.image || 'None'}</p>
-                        <p className="text-sm"><strong>Attributes:</strong> {session.user1?.attributes || 'None'}</p>
+                        <p className="text-sm"><strong>Attributes:</strong> {session.user1?.attributes ? (
+                          <span className="inline-flex gap-2">
+                            <span className="px-2 py-1 bg-red-100 text-red-800 rounded text-xs">⚔️ ATK: {session.user1.attributes.attack || 0}</span>
+                            <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">🛡️ DEF: {session.user1.attributes.defense || 0}</span>
+                            <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs">⚡ SPD: {session.user1.attributes.speed || 0}</span>
+                          </span>
+                        ) : 'None'}</p>
                       </div>
-                      <div className="bg-gray-50 p-3 rounded">
-                        <h4 className="font-medium mb-2">User 2 {session.user2 ? '(Joined)' : '(Waiting)'}</h4>
-                        {session.user2 ? (
-                          <>
-                            <p className="text-sm"><strong>Wallet:</strong> {session.user2.walletAddress}</p>
-                            <p className="text-sm"><strong>Image:</strong> {session.user2.image}</p>
-                            <p className="text-sm"><strong>Attributes:</strong> {session.user2.attributes}</p>
-                          </>
-                        ) : (
-                          <p className="text-sm text-gray-500">No player joined yet</p>
-                        )}
-                      </div>
+                                              <div className="bg-gray-50 p-3 rounded">
+                          <h4 className="font-medium mb-2">User 2 {session.user2 ? '(Joined)' : '(Waiting)'}</h4>
+                          {session.user2 ? (
+                            <>
+                              <p className="text-sm"><strong>Wallet:</strong> {session.user2.walletAddress}</p>
+                              <p className="text-sm"><strong>Image:</strong> {session.user2.image}</p>
+                              <p className="text-sm"><strong>Attributes:</strong> {session.user2.attributes ? (
+                                <span className="inline-flex gap-2">
+                                  <span className="px-2 py-1 bg-red-100 text-red-800 rounded text-xs">⚔️ ATK: {session.user2.attributes.attack || 0}</span>
+                                  <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">🛡️ DEF: {session.user2.attributes.defense || 0}</span>
+                                  <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs">⚡ SPD: {session.user2.attributes.speed || 0}</span>
+                                </span>
+                              ) : 'None'}</p>
+                            </>
+                          ) : (
+                            <p className="text-sm text-gray-500">No player joined yet</p>
+                          )}
+                        </div>
                     </div>
                     <div className="mt-3 text-xs text-gray-500">
                       <p>Created: {new Date(session.createdAt).toLocaleString()}</p>
