@@ -8,10 +8,15 @@
     "start": "next start",
     "lint": "next lint",
     "test-db": "node scripts/test-database.js",
+    "test-api": "node scripts/test-api-sessions.js",
+    "test-retrieval": "node scripts/test-session-retrieval.js",
+    "test-connection": "node scripts/test-connection.js",
+    "test-all": "npm run test-connection && npm run test-db && npm run test-api && npm run test-retrieval",
     "migrate": "node scripts/migrate-attributes.js"
   },
   "dependencies": {
     "dotenv": "^16.3.1",
+    "ethers": "^6.15.0",
     "lucide-react": "^0.539.0",
     "mongodb": "^6.3.0",
     "mongoose": "^8.17.1",
