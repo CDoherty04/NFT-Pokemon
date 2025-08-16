@@ -34,7 +34,7 @@ const SessionSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        default: 'waiting' // Changed from 'active' to 'waiting' when only user1 is present
+        default: 'waiting'
     },
     sessionId: {
         type: String,

@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { RefreshCcw as RefreshCcwIcon } from 'lucide-react';
+import { RefreshCcw as RefreshCcwIcon, Palette } from 'lucide-react';
+import DrawingApp from './components/DrawingApp';
 
 export default function Home() {
   const [sessions, setSessions] = useState([]);
@@ -19,6 +20,10 @@ export default function Home() {
   // Battle turn tracking
   const [currentTurn, setCurrentTurn] = useState('user1'); // 'user1' or 'user2'
   const [battleLog, setBattleLog] = useState([]);
+  
+  // Drawing overlay state
+  const [isDrawingOpen, setIsDrawingOpen] = useState(false);
+  const [drawingFor, setDrawingFor] = useState(''); // 'create' or 'join'
   
   // Form data for creating a session
   const [createFormData, setCreateFormData] = useState({
@@ -224,6 +229,28 @@ export default function Home() {
     setMessage('📋 Session ID copied to clipboard!');
   };
 
+  // Open drawing overlay
+  const openDrawing = (forForm) => {
+    setDrawingFor(forForm);
+    setIsDrawingOpen(true);
+  };
+
+  // Save drawn image
+  const saveDrawnImage = (imageDataUrl) => {
+    if (drawingFor === 'create') {
+      setCreateFormData(prev => ({
+        ...prev,
+        user1: { ...prev.user1, image: imageDataUrl }
+      }));
+    } else if (drawingFor === 'join') {
+      setJoinFormData(prev => ({
+        ...prev,
+        user2: { ...prev.user2, image: imageDataUrl }
+      }));
+    }
+    setMessage('🎨 Drawing saved! You can now create or join a battle.');
+  };
+
   // Battle action functions
   const performAttack = () => {
     if (!isUserTurn()) return;
@@ -275,7 +302,7 @@ export default function Home() {
     switchTurn();
   };
 
-  const fleeBattle = () => {
+  const fleeBattle = async () => {
     if (!isUserTurn()) return;
     
     const userRole = getUserRole();
@@ -283,8 +310,31 @@ export default function Home() {
     
     addToBattleLog(`${user.walletAddress.substring(0, 10)}... flees from battle!`);
     
-    // For now, just switch turns. In a real implementation, this might end the battle
-    switchTurn();
+    // Set session status to completed when user flees
+    try {
+      setLoading(true);
+      const response = await fetch(`/api/sessions/${currentBattle.sessionId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'completed' })
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        addToBattleLog('Battle ended due to flee!');
+        // Refresh sessions to get updated status
+        await fetchSessions();
+        // Clear current battle since it's now completed
+        setCurrentBattle(null);
+        setActiveTab('sessions');
+      } else {
+        addToBattleLog('Error ending battle: ' + data.error);
+      }
+    } catch (error) {
+      addToBattleLog('Error ending battle: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -572,16 +622,37 @@ export default function Home() {
             
             <div className="mb-4">
               <h3 className="font-medium mb-2">Your Pokemon</h3>
-              <input
-                type="url"
-                placeholder="Image URL"
-                value={createFormData.user1.image}
-                onChange={(e) => setCreateFormData({
-                  ...createFormData,
-                  user1: { ...createFormData.user1, image: e.target.value }
-                })}
-                className="w-full p-2 border rounded mb-2"
-              />
+              <div className="flex items-center gap-4 mb-4">
+                {createFormData.user1.image ? (
+                  <div className="flex items-center gap-4">
+                    <img 
+                      src={createFormData.user1.image} 
+                      alt="Your Pokemon" 
+                      className="w-24 h-24 rounded-lg object-cover border-2 border-gray-300"
+                    />
+                    <button
+                      onClick={() => setCreateFormData(prev => ({
+                        ...prev,
+                        user1: { ...prev.user1, image: '' }
+                      }))}
+                      className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-sm"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ) : (
+                  <div className="text-center">
+                    <p className="text-gray-600 mb-2">No Pokemon image yet</p>
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={() => openDrawing('create')}
+                className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
+              >
+                <Palette size={16} />
+                Draw Your Pokemon
+              </button>
               
               <div className="mb-4">
                 <h4 className="font-medium mb-3">Attribute Points (3 total points to allocate)</h4>
@@ -727,16 +798,37 @@ export default function Home() {
               />
               
               <h3 className="font-medium mb-2">Your Pokemon</h3>
-              <input
-                type="url"
-                placeholder="Image URL"
-                value={joinFormData.user2.image}
-                onChange={(e) => setJoinFormData({
-                  ...joinFormData,
-                  user2: { ...joinFormData.user2, image: e.target.value }
-                })}
-                className="w-full p-2 border rounded mb-2"
-              />
+              <div className="flex items-center gap-4 mb-4">
+                {joinFormData.user2.image ? (
+                  <div className="flex items-center gap-4">
+                    <img 
+                      src={joinFormData.user2.image} 
+                      alt="Your Pokemon" 
+                      className="w-24 h-24 rounded-lg object-cover border-2 border-gray-300"
+                    />
+                    <button
+                      onClick={() => setJoinFormData(prev => ({
+                        ...prev,
+                        user2: { ...prev.user2, image: '' }
+                      }))}
+                      className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-sm"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ) : (
+                  <div className="text-center">
+                    <p className="text-gray-600 mb-2">No Pokemon image yet</p>
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={() => openDrawing('join')}
+                className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
+              >
+                <Palette size={16} />
+                Draw Your Pokemon
+              </button>
               
               <div className="mb-4">
                 <h4 className="font-medium mb-3">Attribute Points (3 total points to allocate)</h4>
@@ -988,6 +1080,14 @@ export default function Home() {
             )}
           </div>
         )}
+
+        {/* Drawing Overlay */}
+        <DrawingApp
+          isOpen={isDrawingOpen}
+          onClose={() => setIsDrawingOpen(false)}
+          onSave={saveDrawnImage}
+          title={drawingFor === 'create' ? "Draw Your Pokemon (Create Battle)" : "Draw Your Pokemon (Join Battle)"}
+        />
       </div>
     </div>
   );
