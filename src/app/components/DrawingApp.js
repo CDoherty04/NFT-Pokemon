@@ -230,18 +230,6 @@ export default function DrawingApp({ isOpen, onClose, onSave, title = "Draw Your
             style={{ maxWidth: '100%', height: 'auto' }}
           />
         </div>
-
-        {/* Instructions */}
-        <div className="p-4 bg-blue-50 border-t">
-          <h3 className="text-lg font-semibold mb-2">How to use:</h3>
-          <ul className="text-sm text-gray-700 space-y-1">
-            <li>• Select a tool (brush, eraser, or shapes)</li>
-            <li>• Choose your color from the palette or color picker</li>
-            <li>• Adjust brush size with the slider</li>
-            <li>• Click and drag on the canvas to draw</li>
-            <li>• Use "Clear" to start over or "Use This Drawing" to save</li>
-          </ul>
-        </div>
       </div>
     </div>
   );

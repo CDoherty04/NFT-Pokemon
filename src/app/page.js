@@ -628,7 +628,7 @@ export default function Home() {
                     <img 
                       src={createFormData.user1.image} 
                       alt="Your Pokemon" 
-                      className="w-24 h-24 rounded-lg object-cover border-2 border-gray-300"
+                      className="w-40 h-40 rounded-lg object-cover border-2 border-gray-300"
                     />
                     <button
                       onClick={() => setCreateFormData(prev => ({
@@ -804,7 +804,7 @@ export default function Home() {
                     <img 
                       src={joinFormData.user2.image} 
                       alt="Your Pokemon" 
-                      className="w-24 h-24 rounded-lg object-cover border-2 border-gray-300"
+                      className="w-40 h-40 rounded-lg object-cover border-2 border-gray-300"
                     />
                     <button
                       onClick={() => setJoinFormData(prev => ({
@@ -985,7 +985,17 @@ export default function Home() {
                     <div className="bg-white p-3 rounded">
                       <h4 className="font-medium mb-2">Host Player</h4>
                       <p className="text-sm"><strong>Wallet:</strong> {session.user1?.walletAddress || 'None'}</p>
-                      <p className="text-sm"><strong>Image:</strong> {session.user1?.image || 'None'}</p>
+                      <div className="mb-2">
+                        {session.user1?.image ? (
+                          <img 
+                            src={session.user1.image} 
+                            alt="Host Pokemon" 
+                            className="w-40 h-40 rounded-lg object-cover border-2 border-gray-300 mt-1"
+                          />
+                        ) : (
+                          <span className="text-gray-500 ml-2">None</span>
+                        )}
+                      </div>
                       <p className="text-sm"><strong>Attributes:</strong> {session.user1?.attributes ? (
                         <span className="inline-flex gap-2">
                           <span className="px-2 py-1 bg-red-100 text-red-800 rounded text-xs">⚔️ ATK: {session.user1.attributes.attack || 0}</span>
@@ -1042,7 +1052,17 @@ export default function Home() {
                       <div className="bg-gray-50 p-3 rounded">
                         <h4 className="font-medium mb-2">User 1 (Host)</h4>
                         <p className="text-sm"><strong>Wallet:</strong> {session.user1?.walletAddress || 'None'}</p>
-                        <p className="text-sm"><strong>Image:</strong> {session.user1?.image || 'None'}</p>
+                        <div className="mb-2">
+                          {session.user1?.image ? (
+                            <img 
+                              src={session.user1.image} 
+                              alt="User 1 Pokemon" 
+                              className="w-40 h-40 rounded-lg object-cover border-2 border-gray-300 mt-1"
+                            />
+                          ) : (
+                            <span className="text-gray-500 ml-2">None</span>
+                          )}
+                        </div>
                         <p className="text-sm"><strong>Attributes:</strong> {session.user1?.attributes ? (
                           <span className="inline-flex gap-2">
                             <span className="px-2 py-1 bg-red-100 text-red-800 rounded text-xs">⚔️ ATK: {session.user1.attributes.attack || 0}</span>
@@ -1051,12 +1071,22 @@ export default function Home() {
                           </span>
                         ) : 'None'}</p>
                       </div>
-                                              <div className="bg-gray-50 p-3 rounded">
-                          <h4 className="font-medium mb-2">User 2 {session.user2 ? '(Joined)' : '(Waiting)'}</h4>
+                      <div className="bg-gray-50 p-3 rounded">
+                        <h4 className="font-medium mb-2">User 2 {session.user2 ? '(Joined)' : '(Waiting)'}</h4>
                           {session.user2 ? (
                             <>
                               <p className="text-sm"><strong>Wallet:</strong> {session.user2.walletAddress}</p>
-                              <p className="text-sm"><strong>Image:</strong> {session.user2.image}</p>
+                              <div className="mb-2">
+                                {session.user2.image ? (
+                                  <img 
+                                    src={session.user2.image} 
+                                    alt="User 2 Pokemon" 
+                                    className="w-40 h-40 rounded-lg object-cover border-2 border-gray-300 mt-1"
+                                  />
+                                ) : (
+                                  <span className="text-gray-500 ml-2">None</span>
+                                )}
+                              </div>
                               <p className="text-sm"><strong>Attributes:</strong> {session.user2.attributes ? (
                                 <span className="inline-flex gap-2">
                                   <span className="px-2 py-1 bg-red-100 text-red-800 rounded text-xs">⚔️ ATK: {session.user2.attributes.attack || 0}</span>
