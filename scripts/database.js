@@ -45,6 +45,41 @@ const SessionSchema = new mongoose.Schema({
         type: Boolean,
         default: true
     },
+    // New fields for battle system
+    battlePhase: {
+        type: String,
+        enum: ['waiting', 'action-selection', 'battle-resolution', 'completed'],
+        default: 'waiting'
+    },
+    currentRound: {
+        type: Number,
+        default: 1
+    },
+    user1Health: {
+        type: Number,
+        default: 100
+    },
+    user2Health: {
+        type: Number,
+        default: 100
+    },
+    user1Action: {
+        type: String,
+        enum: ['attack', 'defense', 'special', 'flee', ''],
+        default: ''
+    },
+    user2Action: {
+        type: String,
+        enum: ['attack', 'defense', 'special', 'flee', ''],
+        default: ''
+    },
+    battleLog: [{
+        message: String,
+        timestamp: {
+            type: Date,
+            default: Date.now
+        }
+    }],
     createdAt: {
         type: Date,
         default: Date.now
@@ -122,20 +157,22 @@ const createSession = async (user1, status = 'waiting') => {
         // Validate and normalize attributes
         const normalizedAttributes = normalizeAttributes(user1.attributes);
         
+        // Generate a unique session ID
+        const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        
         const session = new Session({
+            sessionId: sessionId,
             user1: {
                 walletAddress: user1.walletAddress,
                 image: user1.image,
-                attributes: normalizedAttributes
+                attributes: user1.attributes
             },
-            user2: {
-                walletAddress: '',
-                image: '',
-                attributes: { attack: 0, defense: 0, speed: 0 }
-            },
-            status: status,
-            sessionId: `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-            isActive: true
+            user1Health: 100 + (user1.attributes.defense * 20), // Base 100 + 20 per defense point
+            status: 'waiting',
+            battlePhase: 'waiting',
+            currentRound: 1,
+            createdAt: new Date(),
+            updatedAt: new Date()
         });
         
         console.log('Session object to save:', session);
@@ -238,9 +275,11 @@ const joinSession = async (sessionId, user2) => {
                     user2: {
                         walletAddress: user2.walletAddress,
                         image: user2.image,
-                        attributes: normalizedAttributes
+                        attributes: user2.attributes
                     },
+                    user2Health: 100 + (user2.attributes.defense * 20), // Base 100 + 20 per defense point
                     status: 'active',
+                    battlePhase: 'action-selection',
                     updatedAt: new Date()
                 }
             },
@@ -352,6 +391,303 @@ const getAllSessions = async () => {
     }
 };
 
+// New functions for battle system
+const submitUserAction = async (sessionId, userWalletAddress, action) => {
+    try {
+        console.log(`Submitting action ${action} for user ${userWalletAddress} in session ${sessionId}`);
+        
+        const session = await Session.findOne({ sessionId: sessionId });
+        if (!session) {
+            throw new Error('Session not found');
+        }
+        
+        console.log('Found session before update:', {
+            sessionId: session.sessionId,
+            user1Action: session.user1Action,
+            user2Action: session.user2Action,
+            battlePhase: session.battlePhase
+        });
+        
+        if (session.status !== 'active') {
+            throw new Error('Session is not active');
+        }
+        
+        // Determine which user is submitting the action
+        let updateField = '';
+        if (session.user1.walletAddress === userWalletAddress) {
+            updateField = 'user1Action';
+        } else if (session.user2.walletAddress === userWalletAddress) {
+            updateField = 'user2Action';
+        } else {
+            throw new Error('User not found in session');
+        }
+        
+        console.log(`Updating ${updateField} to ${action}`);
+        
+        // Try a different update approach - update the session directly
+        session[updateField] = action;
+        session.battlePhase = 'action-selection';
+        session.updatedAt = new Date();
+        
+        // Validate the session before saving
+        const validationError = session.validateSync();
+        if (validationError) {
+            console.error('Validation error before save:', validationError);
+            throw new Error(`Validation failed: ${validationError.message}`);
+        }
+        
+        const savedSession = await session.save();
+        
+        console.log('Session after save:', {
+            sessionId: savedSession.sessionId,
+            user1Action: savedSession.user1Action,
+            user2Action: savedSession.user2Action,
+            battlePhase: savedSession.battlePhase
+        });
+        
+        // Verify the update was successful
+        if (savedSession[updateField] !== action) {
+            throw new Error(`Failed to update ${updateField} - expected ${action}, got ${savedSession[updateField]}`);
+        }
+        
+        console.log(`Action submitted successfully: ${action} for ${updateField}`);
+        
+        // Check if both players have submitted actions for this round
+        if (savedSession.user1Action && savedSession.user2Action) {
+            console.log('Both actions received, processing battle automatically...');
+            
+            // Process the battle using the existing battle logic
+            const battleResult = await processBattleRound(savedSession);
+            
+            // Reset actions for the next round
+            const nextRoundSession = await resetBattleActions(sessionId);
+            
+            console.log('Battle processed and actions reset for next round');
+            return nextRoundSession;
+        }
+        
+        return savedSession;
+    } catch (error) {
+        console.error('Error submitting user action:', error);
+        throw error;
+    }
+};
+
+const checkAndProcessBattle = async (sessionId) => {
+    try {
+        console.log(`Checking if battle can be processed for session ${sessionId}`);
+        
+        const session = await Session.findOne({ sessionId: sessionId });
+        if (!session) {
+            throw new Error('Session not found');
+        }
+        
+        // Check if both users have submitted actions
+        if (session.user1Action && session.user2Action) {
+            console.log('Both actions received, processing battle...');
+            
+            // Process battle logic
+            const battleResult = processBattleLogic(session.user1Action, session.user2Action, session);
+            
+            // Update session with battle results
+            const updatedSession = await Session.findOneAndUpdate(
+                { sessionId: sessionId },
+                { 
+                    $set: { 
+                        battlePhase: 'battle-resolution',
+                        updatedAt: new Date()
+                    },
+                    $push: { 
+                        battleLog: {
+                            message: battleResult.message,
+                            timestamp: new Date()
+                        }
+                    }
+                },
+                { new: true }
+            );
+            
+            console.log('Battle processed successfully');
+            return updatedSession;
+        } else {
+            console.log('Not all actions received yet');
+            return session;
+        }
+    } catch (error) {
+        console.error('Error checking and processing battle:', error);
+        throw error;
+    }
+};
+
+const processBattleLogic = (user1Action, user2Action, session) => {
+    console.log(`Processing battle: User1 ${user1Action} vs User2 ${user2Action}`);
+    
+    // Get player stats for damage calculations
+    const user1Stats = session.user1.attributes || { attack: 1, defense: 1, speed: 1 };
+    const user2Stats = session.user2.attributes || { attack: 1, defense: 1, speed: 1 };
+    
+    let message = '';
+    let user1Damage = 0;
+    let user2Damage = 0;
+    
+    // Enhanced battle logic with damage calculations
+    if (user1Action === 'attack' && user2Action === 'defense') {
+        // Attack vs Defense - reduced damage
+        user1Damage = Math.max(1, Math.floor(user1Stats.attack * 0.5));
+        message = `User1 attacks but User2 defends! User2 takes ${user1Damage} damage.`;
+    } else if (user1Action === 'attack' && user2Action === 'attack') {
+        // Attack vs Attack - both take damage
+        user1Damage = Math.max(1, Math.floor(user2Stats.attack * 0.8));
+        user2Damage = Math.max(1, Math.floor(user1Stats.attack * 0.8));
+        message = `Both players attack! User1 takes ${user1Damage} damage, User2 takes ${user2Damage} damage.`;
+    } else if (user1Action === 'attack' && user2Action === 'special') {
+        // Attack vs Special - special takes more damage
+        user2Damage = Math.max(1, Math.floor(user1Stats.attack * 1.2));
+        message = `User1 attacks User2's special move! User2 takes ${user2Damage} damage.`;
+    } else if (user1Action === 'defense' && user2Action === 'attack') {
+        // Defense vs Attack - reduced damage
+        user2Damage = Math.max(1, Math.floor(user2Stats.attack * 0.5));
+        message = `User2 attacks but User1 defends! User1 takes ${user2Damage} damage.`;
+    } else if (user1Action === 'defense' && user2Action === 'defense') {
+        // Defense vs Defense - minimal damage
+        user1Damage = Math.max(1, Math.floor(user2Stats.attack * 0.3));
+        user2Damage = Math.max(1, Math.floor(user1Stats.attack * 0.3));
+        message = `Both players defend! Minimal damage: User1 takes ${user1Damage}, User2 takes ${user2Damage}.`;
+    } else if (user1Action === 'defense' && user2Action === 'special') {
+        // Defense vs Special - special is weakened
+        user2Damage = Math.max(1, Math.floor(user2Stats.attack * 0.4));
+        message = `User1 defends against User2's special! User2's special is weakened, dealing ${user2Damage} damage.`;
+    } else if (user1Action === 'special' && user2Action === 'attack') {
+        // Special vs Attack - special takes more damage
+        user1Damage = Math.max(1, Math.floor(user2Stats.attack * 1.2));
+        message = `User2 attacks User1's special move! User1 takes ${user1Damage} damage.`;
+    } else if (user1Action === 'special' && user2Action === 'defense') {
+        // Special vs Defense - special is weakened
+        user1Damage = Math.max(1, Math.floor(user1Stats.attack * 0.4));
+        message = `User1 uses special but User2 defends! User1's special is weakened, dealing ${user1Damage} damage.`;
+    } else if (user1Action === 'special' && user2Action === 'special') {
+        // Special vs Special - both take heavy damage
+        user1Damage = Math.max(1, Math.floor(user2Stats.attack * 1.5));
+        user2Damage = Math.max(1, Math.floor(user1Stats.attack * 1.5));
+        message = `Special vs Special clash! Heavy damage: User1 takes ${user1Damage}, User2 takes ${user2Damage}.`;
+    } else if (user1Action === 'flee' || user2Action === 'flee') {
+        // Flee action
+        if (user1Action === 'flee' && user2Action === 'flee') {
+            message = `Both players flee! It's a draw.`;
+        } else if (user1Action === 'flee') {
+            user1Damage = Math.max(1, Math.floor(user2Stats.attack * 0.5));
+            message = `User1 flees! User1 takes ${user1Damage} damage while escaping.`;
+        } else {
+            user2Damage = Math.max(1, Math.floor(user1Stats.attack * 0.5));
+            message = `User2 flees! User2 takes ${user2Damage} damage while escaping.`;
+        }
+    } else {
+        // Default case
+        user1Damage = Math.max(1, Math.floor(user2Stats.attack * 0.8));
+        user2Damage = Math.max(1, Math.floor(user1Stats.attack * 0.8));
+        message = `Standard battle! User1 takes ${user1Damage} damage, User2 takes ${user2Damage} damage.`;
+    }
+    
+    return { 
+        message, 
+        user1Damage, 
+        user2Damage 
+    };
+};
+
+// New function to process a complete battle round
+const processBattleRound = async (session) => {
+    try {
+        console.log(`Processing battle round for session ${session.sessionId}`);
+        
+        // Get player actions
+        const user1Action = session.user1Action;
+        const user2Action = session.user2Action;
+        
+        if (!user1Action || !user2Action) {
+            throw new Error('Both actions must be present to process battle');
+        }
+        
+        console.log(`Battle: User1 (${user1Action}) vs User2 (${user2Action})`);
+        
+        // Process battle logic
+        const battleResult = processBattleLogic(user1Action, user2Action, session);
+        
+        // Calculate new health values
+        const newUser1Health = Math.max(0, session.user1Health - battleResult.user1Damage);
+        const newUser2Health = Math.max(0, session.user2Health - battleResult.user2Damage);
+        
+        // Check if battle is over (one player has 0 health)
+        const battleCompleted = newUser1Health <= 0 || newUser2Health <= 0;
+        const winner = battleCompleted ? 
+            (newUser1Health <= 0 ? 'user2' : 'user1') : null;
+        
+        // Determine battle phase
+        const newBattlePhase = battleCompleted ? 'completed' : 'battle-resolution';
+        
+        // Update session with battle results
+        const updatedSession = await Session.findOneAndUpdate(
+            { sessionId: session.sessionId },
+            { 
+                $set: { 
+                    battlePhase: newBattlePhase,
+                    user1Health: newUser1Health,
+                    user2Health: newUser2Health,
+                    updatedAt: new Date()
+                },
+                $inc: {
+                    currentRound: 1
+                },
+                $push: { 
+                    battleLog: {
+                        message: battleResult.message,
+                        timestamp: new Date()
+                    }
+                }
+            },
+            { new: true }
+        );
+        
+        console.log('Battle round processed successfully');
+        return updatedSession;
+    } catch (error) {
+        console.error('Error processing battle round:', error);
+        throw error;
+    }
+};
+
+const resetBattleActions = async (sessionId) => {
+    try {
+        console.log(`Resetting battle actions for session ${sessionId}`);
+        
+        const session = await Session.findOne({ sessionId: sessionId });
+        if (!session) {
+            throw new Error('Session not found');
+        }
+
+        const updatedSession = await Session.findOneAndUpdate(
+            { sessionId: sessionId },
+            { 
+                $set: { 
+                    user1Action: '',
+                    user2Action: '',
+                    battlePhase: 'action-selection',
+                    user1Health: 100 + (session.user1.attributes.defense * 20), // Reset to full health
+                    user2Health: 100 + (session.user2.attributes.defense * 20), // Reset to full health
+                    updatedAt: new Date()
+                }
+            },
+            { new: true }
+        );
+        
+        console.log('Battle actions reset successfully');
+        return updatedSession;
+    } catch (error) {
+        console.error('Error resetting battle actions:', error);
+        throw error;
+    }
+};
+
 // Migration function to convert existing string attributes to object format
 const migrateAttributes = async () => {
     try {
@@ -401,6 +737,42 @@ const migrateAttributes = async () => {
     }
 };
 
+// Function to start a new battle (when current battle is completed)
+const startNewBattle = async (sessionId) => {
+    try {
+        console.log(`Starting new battle for session ${sessionId}`);
+        
+        const session = await Session.findOne({ sessionId: sessionId });
+        if (!session) {
+            throw new Error('Session not found');
+        }
+        
+        // Reset everything for a new battle
+        const updatedSession = await Session.findOneAndUpdate(
+            { sessionId: sessionId },
+            { 
+                $set: { 
+                    user1Action: '',
+                    user2Action: '',
+                    battlePhase: 'action-selection',
+                    currentRound: 1,
+                    user1Health: 100 + (session.user1.attributes.defense * 20), // Reset to full health
+                    user2Health: 100 + (session.user2.attributes.defense * 20), // Reset to full health
+                    updatedAt: new Date()
+                },
+                $unset: { battleLog: 1 } // Clear battle log for new battle
+            },
+            { new: true }
+        );
+        
+        console.log('New battle started successfully');
+        return updatedSession;
+    } catch (error) {
+        console.error('Error starting new battle:', error);
+        throw error;
+    }
+};
+
 // Expose the session management functions
 module.exports = {
     createSession,
@@ -412,5 +784,11 @@ module.exports = {
     updateSessionStatus,
     deleteSession,
     getAllSessions,
-    migrateAttributes
+    migrateAttributes,
+    submitUserAction,
+    checkAndProcessBattle,
+    processBattleLogic,
+    resetBattleActions,
+    processBattleRound,
+    startNewBattle
 };
