@@ -1,103 +1,362 @@
-import Image from "next/image";
+'use client';
+
+import { useState, useEffect } from 'react';
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.js
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [sessions, setSessions] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
+  const [formData, setFormData] = useState({
+    user1: { walletAddress: '', image: '', attributes: '' },
+    user2: { walletAddress: '', image: '', attributes: '' },
+    status: 'active'
+  });
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  // Test database connection
+  const testConnection = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('/api/sessions');
+      if (response.ok) {
+        setMessage('✅ Database connection successful!');
+      } else {
+        setMessage('❌ Database connection failed');
+      }
+    } catch (error) {
+      setMessage('❌ Error: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Create a new session
+  const createSession = async () => {
+    if (!formData.user1.walletAddress || !formData.user2.walletAddress) {
+      setMessage('Please fill in both wallet addresses');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch('/api/sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      });
+      const data = await response.json();
+      
+      if (data.success) {
+        setMessage(`✅ Session created! ID: ${data.session.sessionId}`);
+        setFormData({
+          user1: { walletAddress: '', image: '', attributes: '' },
+          user2: { walletAddress: '', image: '', attributes: '' },
+          status: 'active'
+        });
+        fetchSessions();
+      } else {
+        setMessage('❌ Error: ' + data.error);
+      }
+    } catch (error) {
+      setMessage('❌ Error: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch all sessions
+  const fetchSessions = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('/api/sessions');
+      const data = await response.json();
+      if (data.success) {
+        console.log('Fetched sessions data:', data.sessions);
+        setSessions(data.sessions);
+        setMessage(`📋 Found ${data.sessions.length} sessions`);
+      } else {
+        setMessage('❌ Error fetching sessions: ' + data.error);
+      }
+    } catch (error) {
+      setMessage('❌ Error: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Update session status
+  const updateStatus = async (sessionId, newStatus) => {
+    try {
+      const response = await fetch(`/api/sessions/${sessionId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+      });
+      const data = await response.json();
+      
+      if (data.success) {
+        setMessage(`✅ Status updated to: ${newStatus}`);
+        fetchSessions();
+      } else {
+        setMessage('❌ Error updating status: ' + data.error);
+      }
+    } catch (error) {
+      setMessage('❌ Error: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Delete session
+  const deleteSession = async (sessionId) => {
+    if (!confirm('Delete this session?')) return;
+    
+    try {
+      const response = await fetch(`/api/sessions/${sessionId}`, {
+        method: 'DELETE'
+      });
+      const data = await response.json();
+      
+      if (data.success) {
+        setMessage('✅ Session deleted');
+        fetchSessions();
+      } else {
+        setMessage('❌ Error deleting: ' + data.error);
+      }
+    } catch (error) {
+      setMessage('❌ Error: ' + error.message);
+    }
+  };
+
+  // Load demo data
+  const loadDemo = () => {
+    setFormData({
+      user1: { 
+        walletAddress: '0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6', 
+        image: 'https://example.com/user1.jpg', 
+        attributes: '{"rarity": "legendary", "level": 99}' 
+      },
+      user2: { 
+        walletAddress: '0x8ba1f109551bD432803012645Hac136c772c3c7c', 
+        image: 'https://example.com/user2.jpg', 
+        attributes: '{"rarity": "epic", "level": 85}' 
+      },
+      status: 'active'
+    });
+    setMessage('📝 Demo data loaded - click Create Session to test');
+  };
+
+  // Clear form
+  const clearForm = () => {
+    setFormData({
+      user1: { walletAddress: '', image: '', attributes: '' },
+      user2: { walletAddress: '', image: '', attributes: '' },
+      status: 'active'
+    });
+    setMessage('🧹 Form cleared');
+  };
+
+  useEffect(() => {
+    testConnection();
+  }, []);
+
+  return (
+    <div className="min-h-screen bg-gray-50 p-4">
+      <div className="max-w-4xl mx-auto">
+        <h1 className="text-3xl font-bold text-center mb-8">🗄️ Database Test</h1>
+        
+        {/* Status Message */}
+        {message && (
+          <div className="mb-6 p-3 bg-blue-50 border border-blue-200 rounded text-center">
+            <span className="text-blue-800">{message}</span>
+          </div>
+        )}
+
+        {/* Test Controls */}
+        <div className="bg-white rounded-lg shadow p-6 mb-6">
+          <h2 className="text-xl font-semibold mb-4">Test Controls</h2>
+          <div className="flex flex-wrap gap-3">
+            <button
+              onClick={testConnection}
+              disabled={loading}
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+            >
+              Test Connection
+            </button>
+            <button
+              onClick={fetchSessions}
+              disabled={loading}
+              className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
+            >
+              Fetch Sessions
+            </button>
+            <button
+              onClick={loadDemo}
+              className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
+            >
+              Load Demo
+            </button>
+            <button
+              onClick={clearForm}
+              className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
+            >
+              Clear Form
+            </button>
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+
+        {/* Create Session Form */}
+        <div className="bg-white rounded-lg shadow p-6 mb-6">
+          <h2 className="text-xl font-semibold mb-4">Create Session</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <h3 className="font-medium mb-2">User 1</h3>
+              <input
+                type="text"
+                placeholder="Wallet Address"
+                value={formData.user1.walletAddress}
+                onChange={(e) => setFormData({
+                  ...formData,
+                  user1: { ...formData.user1, walletAddress: e.target.value }
+                })}
+                className="w-full p-2 border rounded mb-2"
+              />
+              <input
+                type="url"
+                placeholder="Image URL"
+                value={formData.user1.image}
+                onChange={(e) => setFormData({
+                  ...formData,
+                  user1: { ...formData.user1, image: e.target.value }
+                })}
+                className="w-full p-2 border rounded mb-2"
+              />
+              <textarea
+                placeholder="Attributes (JSON format)"
+                value={formData.user1.attributes}
+                onChange={(e) => setFormData({
+                  ...formData,
+                  user1: { ...formData.user1, attributes: e.target.value }
+                })}
+                className="w-full p-2 border rounded"
+                rows="3"
+              />
+            </div>
+            <div>
+              <h3 className="font-medium mb-2">User 2</h3>
+              <input
+                type="text"
+                placeholder="Wallet Address"
+                value={formData.user2.walletAddress}
+                onChange={(e) => setFormData({
+                  ...formData,
+                  user2: { ...formData.user2, walletAddress: e.target.value }
+                })}
+                className="w-full p-2 border rounded mb-2"
+              />
+              <input
+                type="url"
+                placeholder="Image URL"
+                value={formData.user2.image}
+                onChange={(e) => setFormData({
+                  ...formData,
+                  user2: { ...formData.user2, image: e.target.value }
+                })}
+                className="w-full p-2 border rounded mb-2"
+              />
+              <textarea
+                placeholder="Attributes (JSON format)"
+                value={formData.user2.attributes}
+                onChange={(e) => setFormData({
+                  ...formData,
+                  user2: { ...formData.user2, attributes: e.target.value }
+                })}
+                className="w-full p-2 border rounded"
+                rows="3"
+              />
+            </div>
+          </div>
+          <div className="mt-4 flex items-center gap-4">
+            <select
+              value={formData.status}
+              onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+              className="p-2 border rounded"
+            >
+              <option value="active">Active</option>
+              <option value="waiting">Waiting</option>
+              <option value="completed">Completed</option>
+              <option value="ended">Ended</option>
+            </select>
+            <button
+              onClick={createSession}
+              disabled={loading}
+              className="px-6 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
+            >
+              {loading ? 'Creating...' : 'Create Session'}
+            </button>
+          </div>
+        </div>
+
+        {/* Sessions List */}
+        <div className="bg-white rounded-lg shadow p-6">
+          <h2 className="text-xl font-semibold mb-4">Sessions ({sessions.length})</h2>
+          {sessions.length === 0 ? (
+            <p className="text-gray-500 text-center py-8">No sessions found</p>
+          ) : (
+            <div className="space-y-4">
+              {sessions.map((session) => (
+                <div key={session.sessionId} className="border rounded p-4">
+                  <div className="flex justify-between items-start mb-3">
+                    <div>
+                      <span className="inline-block px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded">
+                        {session.status}
+                      </span>
+                      <span className="ml-2 text-sm text-gray-500">
+                        {session.sessionId}
+                      </span>
+                    </div>
+                    <div className="flex gap-2">
+                      <select
+                        value={session.status}
+                        onChange={(e) => updateStatus(session.sessionId, e.target.value)}
+                        className="text-xs p-1 border rounded"
+                      >
+                        <option value="active">Active</option>
+                        <option value="waiting">Waiting</option>
+                        <option value="completed">Completed</option>
+                        <option value="ended">Ended</option>
+                      </select>
+                      <button
+                        onClick={() => deleteSession(session.sessionId)}
+                        className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="bg-gray-50 p-3 rounded">
+                      <h4 className="font-medium mb-2">User 1</h4>
+                      <p className="text-sm"><strong>Wallet:</strong> {session.user1?.walletAddress || 'None'}</p>
+                      <p className="text-sm"><strong>Image:</strong> {session.user1?.image || 'None'}</p>
+                      <p className="text-sm"><strong>Attributes:</strong> {session.user1?.attributes || 'None'}</p>
+                    </div>
+                    <div className="bg-gray-50 p-3 rounded">
+                      <h4 className="font-medium mb-2">User 2</h4>
+                      <p className="text-sm"><strong>Wallet:</strong> {session.user2?.walletAddress || 'None'}</p>
+                      <p className="text-sm"><strong>Image:</strong> {session.user2?.image || 'None'}</p>
+                      <p className="text-sm"><strong>Attributes:</strong> {session.user2?.attributes || 'None'}</p>
+                    </div>
+                  </div>
+                  <div className="mt-3 text-xs text-gray-500">
+                    <p>Created: {new Date(session.createdAt).toLocaleString()}</p>
+                    <p>Updated: {new Date(session.updatedAt).toLocaleString()}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
