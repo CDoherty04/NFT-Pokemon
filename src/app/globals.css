@@ -78,3 +78,98 @@ input[type="range"]::-moz-range-thumb:hover {
   background: #2563eb;
   transform: scale(1.1);
 }
+
+/* Game-specific animations */
+@keyframes blob {
+  0% {
+    transform: translate(0px, 0px) scale(1);
+  }
+  33% {
+    transform: translate(30px, -50px) scale(1.1);
+  }
+  66% {
+    transform: translate(-20px, 20px) scale(0.9);
+  }
+  100% {
+    transform: translate(0px, 0px) scale(1);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-20px);
+  }
+}
+
+.animate-blob {
+  animation: blob 7s infinite;
+}
+
+.animation-delay-2000 {
+  animation-delay: 2s;
+}
+
+.animation-delay-4000 {
+  animation-delay: 4s;
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* Custom slider styles for game components */
+.slider {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.slider::-webkit-slider-track {
+  background: rgba(255, 255, 255, 0.2);
+  height: 12px;
+  border-radius: 6px;
+}
+
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  height: 24px;
+  width: 24px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  transition: all 0.2s ease;
+}
+
+.slider::-webkit-slider-thumb:hover {
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  transform: scale(1.1);
+}
+
+.slider::-moz-range-track {
+  background: rgba(255, 255, 255, 0.2);
+  height: 12px;
+  border-radius: 6px;
+  border: none;
+}
+
+.slider::-moz-range-thumb {
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  height: 24px;
+  width: 24px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.slider::-moz-range-thumb:hover {
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  transform: scale(1.1);
+}
