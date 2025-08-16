@@ -16,6 +16,10 @@ export default function Home() {
   // Current active battle session for the user
   const [currentBattle, setCurrentBattle] = useState(null);
   
+  // Battle turn tracking
+  const [currentTurn, setCurrentTurn] = useState('user1'); // 'user1' or 'user2'
+  const [battleLog, setBattleLog] = useState([]);
+  
   // Form data for creating a session
   const [createFormData, setCreateFormData] = useState({
     user1: { 
@@ -46,9 +50,60 @@ export default function Home() {
     if (activeSession) {
       setCurrentBattle(activeSession);
       setActiveTab('battle');
+      // Initialize battle log
+      setBattleLog([
+        `Battle started between ${activeSession.user1?.walletAddress?.substring(0, 10)}... and ${activeSession.user2?.walletAddress?.substring(0, 10)}...`,
+        'Both Pokemon are ready for battle!',
+        'User 1 goes first!'
+      ]);
+      setCurrentTurn('user1');
     } else {
       setCurrentBattle(null);
+      setBattleLog([]);
+      setCurrentTurn('user1');
     }
+  };
+
+  // Check if it's the current user's turn
+  const isUserTurn = () => {
+    if (!currentBattle) return false;
+    
+    if (currentTurn === 'user1' && currentBattle.user1?.walletAddress === currentWalletAddress) {
+      return true;
+    }
+    if (currentTurn === 'user2' && currentBattle.user2?.walletAddress === currentWalletAddress) {
+      return true;
+    }
+    return false;
+  };
+
+  // Get the current user's role (user1 or user2)
+  const getUserRole = () => {
+    if (!currentBattle) return null;
+    
+    if (currentBattle.user1?.walletAddress === currentWalletAddress) {
+      return 'user1';
+    }
+    if (currentBattle.user2?.walletAddress === currentWalletAddress) {
+      return 'user2';
+    }
+    return null;
+  };
+
+  // Switch turns
+  const switchTurn = () => {
+    const newTurn = currentTurn === 'user1' ? 'user2' : 'user1';
+    setCurrentTurn(newTurn);
+    
+    const currentUser = newTurn === 'user1' ? currentBattle.user1 : currentBattle.user2;
+    const opponent = newTurn === 'user1' ? currentBattle.user2 : currentBattle.user1;
+    
+    setBattleLog(prev => [...prev, `${currentUser?.walletAddress?.substring(0, 10)}...'s turn!`]);
+  };
+
+  // Add message to battle log
+  const addToBattleLog = (message) => {
+    setBattleLog(prev => [...prev, message]);
   };
 
   // Create a new session with only user1
@@ -169,21 +224,67 @@ export default function Home() {
     setMessage('📋 Session ID copied to clipboard!');
   };
 
-  // Battle action functions (placeholder)
+  // Battle action functions
   const performAttack = () => {
-    setMessage('⚔️ Attack action performed! (Placeholder)');
+    if (!isUserTurn()) return;
+    
+    const userRole = getUserRole();
+    const user = currentBattle[userRole];
+    const opponent = userRole === 'user1' ? currentBattle.user2 : currentBattle.user1;
+    
+    // Simple attack calculation
+    const damage = Math.max(1, user.attributes.attack - opponent.attributes.defense);
+    
+    addToBattleLog(`${user.walletAddress.substring(0, 10)}... attacks for ${damage} damage!`);
+    
+    // Switch turns
+    switchTurn();
   };
 
   const performDefense = () => {
-    setMessage('🛡️ Defense action performed! (Placeholder)');
+    if (!isUserTurn()) return;
+    
+    const userRole = getUserRole();
+    const user = currentBattle[userRole];
+    
+    addToBattleLog(`${user.walletAddress.substring(0, 10)}... takes a defensive stance!`);
+    
+    // Switch turns
+    switchTurn();
   };
 
   const performSpecial = () => {
-    setMessage('✨ Special action performed! (Placeholder)');
+    if (!isUserTurn()) return;
+    
+    const userRole = getUserRole();
+    const user = currentBattle[userRole];
+    
+    // Special move based on highest attribute
+    let specialEffect = '';
+    if (user.attributes.speed >= user.attributes.attack && user.attributes.speed >= user.attributes.defense) {
+      specialEffect = 'uses Quick Strike for bonus damage!';
+    } else if (user.attributes.attack >= user.attributes.defense) {
+      specialEffect = 'uses Power Strike for massive damage!';
+    } else {
+      specialEffect = 'uses Iron Defense to block all damage!';
+    }
+    
+    addToBattleLog(`${user.walletAddress.substring(0, 10)}... ${specialEffect}`);
+    
+    // Switch turns
+    switchTurn();
   };
 
   const fleeBattle = () => {
-    setMessage('🏃‍♂️ Flee action performed! (Placeholder)');
+    if (!isUserTurn()) return;
+    
+    const userRole = getUserRole();
+    const user = currentBattle[userRole];
+    
+    addToBattleLog(`${user.walletAddress.substring(0, 10)}... flees from battle!`);
+    
+    // For now, just switch turns. In a real implementation, this might end the battle
+    switchTurn();
   };
 
   useEffect(() => {
@@ -384,31 +485,67 @@ export default function Home() {
               </div>
             </div>
 
+            {/* Turn Indicator */}
+            <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-4 mb-6 text-center">
+              <h3 className="text-xl font-bold mb-2">
+                {currentTurn === 'user1' ? '🔄 User 1\'s Turn' : '🔄 User 2\'s Turn'}
+              </h3>
+              <p className="text-gray-700">
+                {isUserTurn() 
+                  ? '🎯 It\'s your turn! Choose an action below.' 
+                  : '⏳ Waiting for opponent to make their move...'
+                }
+              </p>
+              <p className="text-sm text-gray-600 mt-2">
+                Current Turn: {currentTurn === 'user1' ? currentBattle.user1?.walletAddress?.substring(0, 10) + '...' : currentBattle.user2?.walletAddress?.substring(0, 10) + '...'}
+              </p>
+            </div>
+
             {/* Battle Actions */}
             <div className="bg-gray-50 rounded-lg p-6">
               <h3 className="text-xl font-bold mb-4 text-center">Battle Actions</h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <button
                   onClick={performAttack}
-                  className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-bold text-lg"
+                  disabled={!isUserTurn() || loading}
+                  className={`px-6 py-3 rounded-lg font-bold text-lg transition-all duration-200 ${
+                    isUserTurn() && !loading
+                      ? 'bg-red-600 text-white hover:bg-red-700 cursor-pointer'
+                      : 'bg-gray-400 text-gray-200 cursor-not-allowed opacity-50'
+                  }`}
                 >
                   ⚔️ Attack
                 </button>
                 <button
                   onClick={performDefense}
-                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold text-lg"
+                  disabled={!isUserTurn() || loading}
+                  className={`px-6 py-3 rounded-lg font-bold text-lg transition-all duration-200 ${
+                    isUserTurn() && !loading
+                      ? 'bg-blue-600 text-white hover:bg-blue-700 cursor-pointer'
+                      : 'bg-gray-400 text-gray-200 cursor-not-allowed opacity-50'
+                  }`}
                 >
                   🛡️ Defense
                 </button>
                 <button
                   onClick={performSpecial}
-                  className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-bold text-lg"
+                  disabled={!isUserTurn() || loading}
+                  className={`px-6 py-3 rounded-lg font-bold text-lg transition-all duration-200 ${
+                    isUserTurn() && !loading
+                      ? 'bg-purple-600 text-white hover:bg-purple-700 cursor-pointer'
+                      : 'bg-gray-400 text-gray-200 cursor-not-allowed opacity-50'
+                  }`}
                 >
                   ✨ Special
                 </button>
                 <button
                   onClick={fleeBattle}
-                  className="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 font-bold text-lg"
+                  disabled={!isUserTurn() || loading}
+                  className={`px-6 py-3 rounded-lg font-bold text-lg transition-all duration-200 ${
+                    isUserTurn() && !loading
+                      ? 'bg-gray-600 text-white hover:bg-gray-700 cursor-pointer'
+                      : 'bg-gray-400 text-gray-200 cursor-not-allowed opacity-50'
+                  }`}
                 >
                   🏃‍♂️ Flee
                 </button>
@@ -418,9 +555,9 @@ export default function Home() {
             {/* Battle Log */}
             <div className="mt-6 bg-black text-green-400 rounded-lg p-4 font-mono text-sm">
               <h4 className="text-white mb-2">Battle Log:</h4>
-              <p>Battle started between {currentBattle.user1?.walletAddress?.substring(0, 10)}... and {currentBattle.user2?.walletAddress?.substring(0, 10)}...</p>
-              <p>Both Pokemon are ready for battle!</p>
-              <p>Select an action to continue...</p>
+              {battleLog.map((log, index) => (
+                <p key={index}>{log}</p>
+              ))}
             </div>
           </div>
         )}
@@ -778,9 +915,9 @@ export default function Home() {
         {/* All Sessions Tab */}
         {activeTab === 'sessions' && (
           <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold mb-4">All Sessions ({sessions.length})</h2>
+            <h2 className="text-xl font-semibold mb-4">All Battles ({sessions.length})</h2>
             {sessions.length === 0 ? (
-              <p className="text-gray-500 text-center py-8">No sessions found</p>
+              <p className="text-gray-500 text-center py-8">No battles found</p>
             ) : (
               <div className="space-y-4">
                 {sessions.map((session) => (
