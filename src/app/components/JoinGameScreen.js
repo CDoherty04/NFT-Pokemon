@@ -70,7 +70,7 @@ export default function JoinGameScreen({
               <Search className="absolute right-4 top-1/2 transform -translate-y-1/2 text-white/60 w-6 h-6" />
             </div>
             <p className="text-center text-blue-200 mt-4 text-sm">
-              Ask your friend for the 8-character battle code
+              Ask your friend for the 8-digit battle code
             </p>
           </div>
         </div>

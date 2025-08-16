@@ -30,7 +30,7 @@ Creates a new session with only `user1`. The session starts in `waiting` status.
 {
   "success": true,
   "session": {
-    "sessionId": "session_1234567890_abc123def",
+    "sessionId": "12345678",
     "user1": { ... },
     "user2": null,
     "status": "waiting",
@@ -47,7 +47,7 @@ Allows `user2` to join an existing session using the session ID.
 **Request Body:**
 ```json
 {
-  "sessionId": "session_1234567890_abc123def",
+  "sessionId": "12345678",
   "user2": {
     "walletAddress": "0xfedcba0987654321",
     "image": "user2-pokemon.png",
@@ -61,7 +61,7 @@ Allows `user2` to join an existing session using the session ID.
 {
   "success": true,
   "session": {
-    "sessionId": "session_1234567890_abc123def",
+    "sessionId": "12345678",
     "user1": { ... },
     "user2": { ... },
     "status": "active",
@@ -82,7 +82,7 @@ Get all sessions or filter by type.
 **Examples:**
 - `GET /api/sessions` - Get all sessions
 - `GET /api/sessions?type=waiting` - Get waiting sessions only
-- `GET /api/sessions?type=check&sessionId=session_123` - Check session availability
+- `GET /api/sessions?type=check&sessionId=12345678` - Check session availability
 
 ### 4. Get Session by ID
 **GET** `/api/sessions/[id]`
@@ -148,7 +148,7 @@ const response = await fetch('/api/sessions', {
   method: 'PATCH',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({ 
-    sessionId: 'session_1234567890_abc123def',
+    sessionId: '12345678',
     user2: user2Data 
   })
 });

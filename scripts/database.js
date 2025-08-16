@@ -91,10 +91,6 @@ const SessionSchema = new mongoose.Schema({
 });
 
 // Add methods to SessionSchema
-SessionSchema.methods.generateSessionId = function() {
-    return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-};
-
 SessionSchema.methods.updateLastActivity = function() {
     this.updatedAt = new Date();
     return this.save();
@@ -146,6 +142,29 @@ const areAttributesEmpty = (attributes) => {
     return true;
 };
 
+// Helper function to generate unique 8-digit session IDs
+const generateUniqueSessionId = async () => {
+    let sessionId;
+    let attempts = 0;
+    const maxAttempts = 100;
+    
+    do {
+        // Generate a random 8-digit number
+        sessionId = Math.floor(10000000 + Math.random() * 90000000).toString();
+        attempts++;
+        
+        // Check if this ID already exists
+        const existingSession = await Session.findOne({ sessionId: sessionId });
+        if (!existingSession) {
+            return sessionId;
+        }
+        
+        if (attempts >= maxAttempts) {
+            throw new Error('Failed to generate unique session ID after maximum attempts');
+        }
+    } while (true);
+};
+
 // Check if model already exists before creating it
 const Session = mongoose.models.Session || mongoose.model('Session', SessionSchema);
 
@@ -157,8 +176,8 @@ const createSession = async (user1, status = 'waiting') => {
         // Validate and normalize attributes
         const normalizedAttributes = normalizeAttributes(user1.attributes);
         
-        // Generate a unique session ID
-        const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        // Generate a unique 8-digit session ID
+        const sessionId = await generateUniqueSessionId();
         
         const session = new Session({
             sessionId: sessionId,
