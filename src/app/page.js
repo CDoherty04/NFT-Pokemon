@@ -96,10 +96,6 @@ function AppLogic({ currentWalletAddress, user }) {
     setMessage('');
   };
 
-  const handleConnectWallet = () => {
-    setShowWalletWidget(true);
-  };
-
   // Game creation functions
   const handleCreateGame = async (avatarImage, attributes) => {
     if (!avatarImage) {
@@ -442,7 +438,7 @@ function AppLogic({ currentWalletAddress, user }) {
         return (
           <MainMenu
             onNavigate={navigateToScreen}
-            onConnectWallet={handleConnectWallet}
+            isConnected={!!currentWalletAddress}
           />
         );
     }
