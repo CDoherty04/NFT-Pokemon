@@ -34,7 +34,7 @@ const SessionSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        default: 'active'
+        default: 'waiting' // Changed from 'active' to 'waiting' when only user1 is present
     },
     sessionId: {
         type: String,
@@ -69,9 +69,9 @@ SessionSchema.methods.updateLastActivity = function() {
 const Session = mongoose.models.Session || mongoose.model('Session', SessionSchema);
 
 // Session management functions
-const createSession = async (user1, user2, status = 'active') => {
+const createSession = async (user1, status = 'waiting') => {
     try {
-        console.log('Creating session with data:', { user1, user2, status });
+        console.log('Creating session with user1:', user1);
         
         const session = new Session({
             user1: {
@@ -80,9 +80,9 @@ const createSession = async (user1, user2, status = 'active') => {
                 attributes: user1.attributes
             },
             user2: {
-                walletAddress: user2.walletAddress,
-                image: user2.image,
-                attributes: user2.attributes
+                walletAddress: '',
+                image: '',
+                attributes: ''
             },
             status: status,
             sessionId: `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -97,6 +97,75 @@ const createSession = async (user1, user2, status = 'active') => {
         return savedSession;
     } catch (error) {
         console.error('Error creating session:', error);
+        throw error;
+    }
+};
+
+const isSessionAvailable = async (sessionId) => {
+    try {
+        const session = await Session.findOne({ 
+            sessionId: sessionId,
+            status: 'waiting',
+            isActive: true
+        });
+        
+        if (!session) return false;
+        
+        // Check if user2 is actually empty (no wallet address, image, or attributes)
+        return !(session.user2 && (session.user2.walletAddress || session.user2.image || session.user2.attributes));
+    } catch (error) {
+        console.error('Error checking session availability:', error);
+        throw error;
+    }
+};
+
+const joinSession = async (sessionId, user2) => {
+    try {
+        console.log('Joining session:', sessionId, 'with user2:', user2);
+        
+        const session = await Session.findOne({ sessionId: sessionId });
+        
+        if (!session) {
+            throw new Error('Session not found');
+        }
+        
+        if (!session.isActive) {
+            throw new Error('Session is not active');
+        }
+        
+        if (session.user2 && (session.user2.walletAddress || session.user2.image || session.user2.attributes)) {
+            throw new Error('Session is already full');
+        }
+        
+        if (session.status !== 'waiting') {
+            throw new Error('Session is not available for joining');
+        }
+        
+        if (session.user1.walletAddress === user2.walletAddress) {
+            throw new Error('User cannot join their own session');
+        }
+        
+        // Update the session with user2 and change status to active
+        const updatedSession = await Session.findOneAndUpdate(
+            { sessionId: sessionId },
+            { 
+                $set: { 
+                    user2: {
+                        walletAddress: user2.walletAddress,
+                        image: user2.image,
+                        attributes: user2.attributes
+                    },
+                    status: 'active',
+                    updatedAt: new Date()
+                }
+            },
+            { new: true }
+        );
+        
+        console.log('User2 joined session successfully:', updatedSession.sessionId);
+        return updatedSession;
+    } catch (error) {
+        console.error('Error joining session:', error);
         throw error;
     }
 };
@@ -122,6 +191,23 @@ const getSessionsByUserId = async (walletAddress) => {
         return sessions;
     } catch (error) {
         console.error('Error getting sessions by user:', error);
+        throw error;
+    }
+};
+
+const getWaitingSessions = async () => {
+    try {
+        const sessions = await Session.find({ 
+            status: 'waiting',
+            isActive: true 
+        });
+        
+        // Filter out sessions that actually have user2 data
+        return sessions.filter(session => 
+            !(session.user2 && (session.user2.walletAddress || session.user2.image || session.user2.attributes))
+        );
+    } catch (error) {
+        console.error('Error getting waiting sessions:', error);
         throw error;
     }
 };
@@ -176,8 +262,11 @@ const getAllSessions = async () => {
 // Expose the session management functions
 module.exports = {
     createSession,
+    joinSession,
+    isSessionAvailable,
     getSessionById,
     getSessionsByUserId,
+    getWaitingSessions,
     updateSessionStatus,
     deleteSession,
     getAllSessions
