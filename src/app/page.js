@@ -777,7 +777,6 @@ export default function Home() {
       const initialLog = [
         `Battle started between ${activeSession.user1?.walletAddress?.substring(0, 10)}... and ${activeSession.user2?.walletAddress?.substring(0, 10)}...`,
         'Both Pokemon are ready for battle!',
-        'Choose your actions simultaneously!'
       ];
       
       // Add any existing battle log messages from the session
