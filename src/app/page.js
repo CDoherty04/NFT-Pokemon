@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { RefreshCcw as RefreshCcwIcon, Palette } from 'lucide-react';
 import DrawingApp from './components/DrawingApp';
 import { ethers } from 'ethers';
+import { BATTLE_ACTIONS, getBattleActionDescriptions } from './utils/battleLogic.js';
 
 export default function Home() {
   const [sessions, setSessions] = useState([]);
@@ -14,6 +15,8 @@ export default function Home() {
 
   // Placeholder wallet address for the current user
   const [currentWalletAddress, setCurrentWalletAddress] = useState(null);
+  const [manualAddress, setManualAddress] = useState('');
+  const [useManualAddress, setUseManualAddress] = useState(false);
 
   // Smart contract state
   const [contractAddress] = useState('0x67F4Eced0ba49Af4C25Fe70493Aa4C1B075414C2');
@@ -528,6 +531,7 @@ export default function Home() {
         const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
         if (accounts.length > 0) {
           setCurrentWalletAddress(accounts[0]);
+          setUseManualAddress(false);
         }
       } catch (error) {
         console.error('Error connecting wallet:', error);
@@ -535,6 +539,25 @@ export default function Home() {
     } else {
       console.error('MetaMask not detected!');
     }
+  };
+
+  // Function to use manual address
+  const useManualAddressInput = () => {
+    if (manualAddress && ethers.isAddress(manualAddress)) {
+      setCurrentWalletAddress(manualAddress);
+      setUseManualAddress(true);
+      setMintingStatus('✅ Using manual address: ' + manualAddress);
+    } else {
+      setMintingStatus('❌ Please enter a valid Ethereum address');
+    }
+  };
+
+  // Function to clear manual address and reset to connected wallet
+  const clearManualAddress = () => {
+    setManualAddress('');
+    setUseManualAddress(false);
+    setCurrentWalletAddress(null);
+    setMintingStatus('');
   };
 
   // Smart contract functions
@@ -598,7 +621,8 @@ export default function Home() {
         }
 
         if (isFlow) {
-          setMintingStatus('✅ Connected to Flow testnet! Ready to mint NFT.');
+          const addressType = useManualAddress ? 'manual address' : 'connected wallet';
+          setMintingStatus(`✅ Connected to Flow testnet! Ready to mint NFT to ${addressType}.`);
         } else {
           setMintingStatus('⚠️ Please switch to Flow testnet to continue.');
         }
@@ -626,8 +650,8 @@ export default function Home() {
     }
 
     try {
-      // Get the connected wallet address
-      const walletAddress = await signer.getAddress();
+      // Use the current wallet address (either connected or manual)
+      const walletAddress = currentWalletAddress;
       setMintingStatus('Minting NFT...');
       console.log('Wallet Address:', walletAddress);
       console.log('Contract Instance:', contractInstance);
@@ -947,6 +971,30 @@ export default function Home() {
     return 'bg-red-500';
   };
 
+  // Helper function to get current player stats
+  const getCurrentPlayerStats = () => {
+    if (!currentBattle || !currentWalletAddress) return null;
+    
+    if (currentBattle.user1?.walletAddress === currentWalletAddress) {
+      return currentBattle.user1?.attributes;
+    } else if (currentBattle.user2?.walletAddress === currentWalletAddress) {
+      return currentBattle.user2?.attributes;
+    }
+    return null;
+  };
+
+  // Helper function to get opponent stats
+  const getOpponentStats = () => {
+    if (!currentBattle || !currentWalletAddress) return null;
+    
+    if (currentBattle.user1?.walletAddress === currentWalletAddress) {
+      return currentBattle.user2?.attributes;
+    } else if (currentBattle.user2?.walletAddress === currentWalletAddress) {
+      return currentBattle.user1?.attributes;
+    }
+    return null;
+  };
+
   // Battle action functions
   const submitAction = async (action) => {
     if (!currentBattle || !isUserTurn()) return;
@@ -1150,10 +1198,10 @@ export default function Home() {
     }
   };
 
-  const performAttack = () => submitAction('attack');
-  const performDefense = () => submitAction('defense');
-  const performSpecial = () => submitAction('special');
-  const fleeBattle = () => submitAction('flee');
+  const performPunch = () => submitAction(BATTLE_ACTIONS.PUNCH);
+  const performKick = () => submitAction(BATTLE_ACTIONS.KICK);
+  const performDodge = () => submitAction(BATTLE_ACTIONS.DODGE);
+  const performBlock = () => submitAction(BATTLE_ACTIONS.BLOCK);
 
   useEffect(() => {
     fetchWaitingSessions();
@@ -1429,6 +1477,9 @@ export default function Home() {
               <p className="text-sm text-gray-600 font-mono bg-gray-100 p-2 rounded">
                 {currentWalletAddress || 'Not connected'}
               </p>
+              {useManualAddress && (
+                <p className="text-xs text-blue-600 mt-1">📝 Using manual address input</p>
+              )}
             </div>
             {!currentWalletAddress && (
               <button
@@ -1438,6 +1489,52 @@ export default function Home() {
                 Connect Wallet
               </button>
             )}
+          </div>
+
+          {/* Manual Address Input Section */}
+          <div className="border-t pt-4 mb-4">
+            <h4 className="text-md font-semibold mb-3">Or Use Manual Address</h4>
+            <p className="text-xs text-gray-600 mb-3">
+              Useful for testing, minting to different addresses, or when you don't want to connect your wallet
+            </p>
+            <div className="flex gap-2 items-end">
+              <div className="flex-1">
+                <label className="block text-xs text-gray-600 mb-1">Enter Ethereum Address:</label>
+                <input
+                  type="text"
+                  value={manualAddress}
+                  onChange={(e) => setManualAddress(e.target.value)}
+                  placeholder="0x..."
+                  className={`w-full px-3 py-2 border rounded text-sm font-mono ${
+                    manualAddress && !ethers.isAddress(manualAddress) 
+                      ? 'border-red-300 bg-red-50' 
+                      : 'border-gray-300'
+                  }`}
+                />
+                {manualAddress && !ethers.isAddress(manualAddress) && (
+                  <p className="text-xs text-red-500 mt-1">Invalid Ethereum address format</p>
+                )}
+              </div>
+              <button
+                onClick={useManualAddressInput}
+                disabled={!manualAddress || !ethers.isAddress(manualAddress)}
+                className={`px-4 py-2 rounded text-sm ${
+                  manualAddress && ethers.isAddress(manualAddress)
+                    ? 'bg-blue-600 text-white hover:bg-blue-700'
+                    : 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                }`}
+              >
+                Use Address
+              </button>
+              {useManualAddress && (
+                <button
+                  onClick={clearManualAddress}
+                  className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 text-sm"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Smart Contract Section */}
@@ -1567,10 +1664,11 @@ export default function Home() {
 
               {/* Instructions */}
               <div className="text-xs text-gray-500">
-                <p>• Click "Connect Wallet" to connect your MetaMask wallet.</p>
+                <p>• Click "Connect Wallet" to connect your MetaMask wallet, OR enter a manual Ethereum address above.</p>
                 <p>• Once connected, click "Connect & Switch to Flow" to switch to Flow testnet and interact with the contract.</p>
                 <p>• Once connected to Flow testnet, click "🚀 Mint NFT" to mint using the hardcoded IPFS URI</p>
-                <p>• NFT will be minted to your connected MetaMask wallet address</p>
+                <p>• NFT will be minted to your connected wallet address or manually entered address</p>
+                <p>• Manual addresses are useful for testing or when you want to mint to a different address</p>
               </div>
             </div>
           </div>
@@ -1763,13 +1861,6 @@ export default function Home() {
 
             {/* Turn Indicator */}
             <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-4 mb-6 text-center">
-              <h3 className="text-xl font-bold mb-2">
-                {battlePhase === 'action-selection' ? '🎯 Choose Your Action' : 
-                 battlePhase === 'battle-resolution' ? '⚔️ Battle Resolved!' : 
-                 battlePhase === 'completed' ? '🏆 Battle Complete!' :
-                 currentBattle?.status === 'active' ? '🎯 Battle Ready - Choose Your Action' :
-                 '⏳ Waiting for Battle'}
-              </h3>
               
               {/* Battle Resolution Status */}
               {currentBattle?.user1Action && currentBattle?.user2Action && battlePhase === 'action-selection' && (
@@ -1784,26 +1875,7 @@ export default function Home() {
                 </div>
               )}
               
-              <p className="text-gray-700">
-                {battlePhase === 'action-selection' 
-                  ? 'Both players choose actions simultaneously. Battle resolves when both actions are submitted.' 
-                  : battlePhase === 'battle-resolution'
-                  ? 'Battle has been resolved! Check the battle log below.'
-                  : battlePhase === 'completed'
-                  ? `Battle is complete! ${currentBattle?.user1Health <= 0 ? 'User2' : 'User1'} wins!`
-                  : currentBattle?.status === 'active'
-                  ? 'Both players are ready! Choose your actions simultaneously. Battle resolves when both actions are submitted.'
-                  : 'Waiting for both players to be ready...'
-                }
-              </p>
-              
-              {/* Round Counter */}
-              <div className="mt-4 bg-white p-3 rounded border">
-                <h4 className="font-medium text-sm mb-2">Current Round</h4>
-                <p className="text-2xl font-bold text-blue-600">
-                  {currentBattle?.currentRound || 1}
-                </p>
-              </div>
+            
               
               {/* Action Status */}
               <div className="mt-4 grid grid-cols-2 gap-4">
@@ -1910,6 +1982,7 @@ export default function Home() {
             <div className="bg-gray-50 rounded-lg p-6">
               <h3 className="text-xl font-bold mb-4 text-center">Battle Actions</h3>
               
+              
               {/* Debug info */}
               <div className="text-xs text-gray-500 mb-4 p-2 bg-gray-100 rounded">
                 <p>Debug: Battle Phase: {battlePhase}</p>
@@ -1968,48 +2041,52 @@ export default function Home() {
               
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <button
-                  onClick={performAttack}
+                  onClick={performPunch}
                   disabled={!((battlePhase === 'action-selection' || (currentBattle?.status === 'active' && !battlePhase)) && !userAction && !loading) || userAction || loading || battlePhase === 'completed'}
                   className={`px-6 py-3 rounded-lg font-bold text-lg transition-all duration-200 ${
                     (battlePhase === 'action-selection' || (currentBattle?.status === 'active' && !battlePhase)) && !userAction && !loading && battlePhase !== 'completed'
                       ? 'bg-red-600 text-white hover:bg-red-700 cursor-pointer'
                       : 'bg-gray-400 text-gray-200 cursor-not-allowed opacity-50'
                   }`}
+                  title={getBattleActionDescriptions()[BATTLE_ACTIONS.PUNCH].description}
                 >
-                  ⚔️ Attack
+                  👊 Punch
                 </button>
                 <button
-                  onClick={performDefense}
+                  onClick={performKick}
+                  disabled={!((battlePhase === 'action-selection' || (currentBattle?.status === 'active' && !battlePhase)) && !userAction && !loading) || userAction || loading || battlePhase === 'completed'}
+                  className={`px-6 py-3 rounded-lg font-bold text-lg transition-all duration-200 ${
+                    (battlePhase === 'action-selection' || (currentBattle?.status === 'active' && !battlePhase)) && !userAction && !loading && battlePhase !== 'completed'
+                      ? 'bg-orange-600 text-white hover:bg-orange-700 cursor-pointer'
+                      : 'bg-gray-400 text-gray-200 cursor-not-allowed opacity-50'
+                  }`}
+                  title={getBattleActionDescriptions()[BATTLE_ACTIONS.KICK].description}
+                >
+                  🦵 Kick
+                </button>
+                <button
+                  onClick={performDodge}
                   disabled={!((battlePhase === 'action-selection' || (currentBattle?.status === 'active' && !battlePhase)) && !userAction && !loading) || userAction || loading || battlePhase === 'completed'}
                   className={`px-6 py-3 rounded-lg font-bold text-lg transition-all duration-200 ${
                     (battlePhase === 'action-selection' || (currentBattle?.status === 'active' && !battlePhase)) && !userAction && !loading && battlePhase !== 'completed'
                       ? 'bg-blue-600 text-white hover:bg-blue-700 cursor-pointer'
                       : 'bg-gray-400 text-gray-200 cursor-not-allowed opacity-50'
                   }`}
+                  title={getBattleActionDescriptions()[BATTLE_ACTIONS.DODGE].description}
                 >
-                  🛡️ Defense
+                  💨 Dodge
                 </button>
                 <button
-                  onClick={performSpecial}
+                  onClick={performBlock}
                   disabled={!((battlePhase === 'action-selection' || (currentBattle?.status === 'active' && !battlePhase)) && !userAction && !loading) || userAction || loading || battlePhase === 'completed'}
                   className={`px-6 py-3 rounded-lg font-bold text-lg transition-all duration-200 ${
                     (battlePhase === 'action-selection' || (currentBattle?.status === 'active' && !battlePhase)) && !userAction && !loading && battlePhase !== 'completed'
                       ? 'bg-purple-600 text-white hover:bg-purple-700 cursor-pointer'
                       : 'bg-gray-400 text-gray-200 cursor-not-allowed opacity-50'
                   }`}
+                  title={getBattleActionDescriptions()[BATTLE_ACTIONS.BLOCK].description}
                 >
-                  ✨ Special
-                </button>
-                <button
-                  onClick={fleeBattle}
-                  disabled={!((battlePhase === 'action-selection' || (currentBattle?.status === 'active' && !battlePhase)) && !userAction && !loading) || userAction || loading || battlePhase === 'completed'}
-                  className={`px-6 py-3 rounded-lg font-bold text-lg transition-all duration-200 ${
-                    (battlePhase === 'action-selection' || (currentBattle?.status === 'active' && !battlePhase)) && !userAction && !loading && battlePhase !== 'completed'
-                      ? 'bg-gray-600 text-white hover:bg-gray-700 cursor-pointer'
-                      : 'bg-gray-400 text-gray-200 cursor-not-allowed opacity-50'
-                  }`}
-                >
-                  🏃‍♂️ Flee
+                  🛡️ Block
                 </button>
               </div>
               
@@ -2043,6 +2120,12 @@ export default function Home() {
                       <span className="text-red-400 font-semibold">{log}</span>
                     ) : log.includes('Battle is complete') ? (
                       <span className="text-yellow-400 font-bold text-lg">{log}</span>
+                    ) : log.includes('speed bonus') ? (
+                      <span className="text-green-400 font-semibold">{log}</span>
+                    ) : log.includes('gains') && log.includes('health') ? (
+                      <span className="text-emerald-400 font-bold">{log}</span>
+                    ) : log.includes('Extra damage') ? (
+                      <span className="text-orange-400 font-semibold">{log}</span>
                     ) : (
                       <span>{log}</span>
                     )}

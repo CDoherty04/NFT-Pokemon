@@ -1,5 +1,17 @@
 /**
  * Battle logic for Pokemon combat using session status for action tracking
+ * 
+ * NEW BATTLE MECHANICS:
+ * - Punches and kicks now do the same base damage (based on attack stat)
+ * - Health is based on defense stat
+ * - Speed 1: Punches do more damage to dodges, kicks do more damage to blocks
+ * - Speed 2: Enhanced damage bonuses (2x multiplier)
+ * - Speed 3: Both bonuses apply + gain health when blocking punches or dodging kicks
+ * 
+ * Speed Bonuses:
+ * - Speed 1+: Punches get +30% damage vs dodges, kicks get +40% damage vs blocks
+ * - Speed 2+: Damage bonuses are doubled (+60% for punches vs dodges, +80% for kicks vs blocks)
+ * - Speed 3+: All bonuses apply + gain health equal to 50% of defense stat when blocking/dodging
  */
 
 import { submitPlayerAction, getCurrentActionStatus, resetSessionStatus } from './roundActions.js';
@@ -130,67 +142,217 @@ export function resolveBattleRound(player1, player2, player1Action, player2Actio
   const p1Stats = player1.attributes || { attack: 1, defense: 1, speed: 1 };
   const p2Stats = player2.attributes || { attack: 1, defense: 1, speed: 1 };
 
+  // Helper function to calculate speed bonuses
+  const getSpeedBonus = (speed) => {
+    if (speed >= 3) return 3; // Both bonuses + health gain
+    if (speed >= 2) return 2; // Enhanced damage
+    if (speed >= 1) return 1; // Basic bonus
+    return 0; // No bonus
+  };
+
+  // Helper function to calculate base damage (same for punches and kicks)
+  const getBaseDamage = (attackStat) => Math.max(1, attackStat);
+
+  // Helper function to calculate health gain from defense
+  const getHealthGain = (defenseStat) => Math.max(1, Math.floor(defenseStat * 0.5));
+
   // Resolve actions based on combinations
   if (player1Action === BATTLE_ACTIONS.PUNCH && player2Action === BATTLE_ACTIONS.BLOCK) {
-    // Punch vs Block - reduced damage
-    const damage = Math.max(1, Math.floor(p1Stats.attack * 0.5));
+    // Punch vs Block - base damage reduced by defense
+    const baseDamage = getBaseDamage(p1Stats.attack);
+    const damage = Math.max(1, Math.floor(baseDamage * 0.5));
     result.player2Damage = damage;
-    result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... punches, but ${player2.walletAddress?.substring(0, 10)}... blocks! Reduced damage: ${damage}`);
+    
+    // Speed bonus: kicks do more damage to blocks
+    const p1SpeedBonus = getSpeedBonus(p1Stats.speed);
+    if (p1SpeedBonus >= 1) {
+      const bonusDamage = Math.floor(baseDamage * 0.3 * p1SpeedBonus);
+      result.player2Damage += bonusDamage;
+      result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... punches with speed bonus! Extra damage: +${bonusDamage}`);
+    }
+    
+    // Speed 3: Player 2 gains health when blocking punches
+    if (p2Stats.speed >= 3) {
+      const healthGain = getHealthGain(p2Stats.defense);
+      result.player2Effects.push({ type: 'health_gain', value: healthGain });
+      result.logMessages.push(`${player2.walletAddress?.substring(0, 10)}... gains ${healthGain} health from blocking with speed 3!`);
+    }
+    
+    result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... punches, but ${player2.walletAddress?.substring(0, 10)}... blocks! Total damage: ${result.player2Damage}`);
   } else if (player1Action === BATTLE_ACTIONS.KICK && player2Action === BATTLE_ACTIONS.BLOCK) {
-    // Kick vs Block - moderate damage
-    const damage = Math.max(1, Math.floor(p1Stats.attack * 0.7));
+    // Kick vs Block - base damage reduced by defense
+    const baseDamage = getBaseDamage(p1Stats.attack);
+    const damage = Math.max(1, Math.floor(baseDamage * 0.5));
     result.player2Damage = damage;
-    result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... kicks hard, ${player2.walletAddress?.substring(0, 10)}... blocks! Damage: ${damage}`);
+    
+    // Speed bonus: kicks do more damage to blocks
+    const p1SpeedBonus = getSpeedBonus(p1Stats.speed);
+    if (p1SpeedBonus >= 1) {
+      const bonusDamage = Math.floor(baseDamage * 0.4 * p1SpeedBonus);
+      result.player2Damage += bonusDamage;
+      result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... kicks with speed bonus vs block! Extra damage: +${bonusDamage}`);
+    }
+    
+    // Speed 3: Player 2 gains health when blocking kicks
+    if (p2Stats.speed >= 3) {
+      const healthGain = getHealthGain(p2Stats.defense);
+      result.player2Effects.push({ type: 'health_gain', value: healthGain });
+      result.logMessages.push(`${player2.walletAddress?.substring(0, 10)}... gains ${healthGain} health from blocking with speed 3!`);
+    }
+    
+    result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... kicks hard, ${player2.walletAddress?.substring(0, 10)}... blocks! Total damage: ${result.player2Damage}`);
   } else if (player1Action === BATTLE_ACTIONS.PUNCH && player2Action === BATTLE_ACTIONS.DODGE) {
-    // Punch vs Dodge - miss
-    result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... punches, but ${player2.walletAddress?.substring(0, 10)}... dodges! Miss!`);
+    // Punch vs Dodge - base damage
+    const baseDamage = getBaseDamage(p1Stats.attack);
+    
+    // Speed bonus: punches do more damage to dodges
+    const p1SpeedBonus = getSpeedBonus(p1Stats.speed);
+    if (p1SpeedBonus >= 1) {
+      const bonusDamage = Math.floor(baseDamage * 0.3 * p1SpeedBonus);
+      result.player2Damage = bonusDamage;
+      result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... punches with speed bonus vs dodge! Damage: ${bonusDamage}`);
+    } else {
+      result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... punches, but ${player2.walletAddress?.substring(0, 10)}... dodges! Miss!`);
+    }
+    
+    // Speed 3: Player 2 gains health when dodging punches
+    if (p2Stats.speed >= 3) {
+      const healthGain = getHealthGain(p2Stats.defense);
+      result.player2Effects.push({ type: 'health_gain', value: healthGain });
+      result.logMessages.push(`${player2.walletAddress?.substring(0, 10)}... gains ${healthGain} health from dodging with speed 3!`);
+    }
   } else if (player1Action === BATTLE_ACTIONS.KICK && player2Action === BATTLE_ACTIONS.DODGE) {
-    // Kick vs Dodge - miss
-    result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... kicks, but ${player2.walletAddress?.substring(0, 10)}... dodges! Miss!`);
+    // Kick vs Dodge - base damage
+    const baseDamage = getBaseDamage(p1Stats.attack);
+    
+    // Speed bonus: kicks do more damage to dodges
+    const p1SpeedBonus = getSpeedBonus(p1Stats.speed);
+    if (p1SpeedBonus >= 1) {
+      const bonusDamage = Math.floor(baseDamage * 0.3 * p1SpeedBonus);
+      result.player2Damage = bonusDamage;
+      result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... kicks with speed bonus vs dodge! Damage: ${bonusDamage}`);
+    } else {
+      result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... kicks, but ${player2.walletAddress?.substring(0, 10)}... dodges! Miss!`);
+    }
+    
+    // Speed 3: Player 2 gains health when dodging kicks
+    if (p2Stats.speed >= 3) {
+      const healthGain = getHealthGain(p2Stats.defense);
+      result.player2Effects.push({ type: 'health_gain', value: healthGain });
+      result.logMessages.push(`${player2.walletAddress?.substring(0, 10)}... gains ${healthGain} health from dodging with speed 3!`);
+    }
   } else if (player1Action === BATTLE_ACTIONS.DODGE && player2Action === BATTLE_ACTIONS.PUNCH) {
-    // Dodge vs Punch - miss
-    result.logMessages.push(`${player2.walletAddress?.substring(0, 10)}... punches, but ${player1.walletAddress?.substring(0, 10)}... dodges! Miss!`);
+    // Dodge vs Punch - base damage
+    const baseDamage = getBaseDamage(p2Stats.attack);
+    
+    // Speed bonus: punches do more damage to dodges
+    const p2SpeedBonus = getSpeedBonus(p2Stats.speed);
+    if (p2SpeedBonus >= 1) {
+      const bonusDamage = Math.floor(baseDamage * 0.3 * p2SpeedBonus);
+      result.player1Damage = bonusDamage;
+      result.logMessages.push(`${player2.walletAddress?.substring(0, 10)}... punches with speed bonus vs dodge! Damage: ${bonusDamage}`);
+    } else {
+      result.logMessages.push(`${player2.walletAddress?.substring(0, 10)}... punches, but ${player1.walletAddress?.substring(0, 10)}... dodges! Miss!`);
+    }
+    
+    // Speed 3: Player 1 gains health when dodging punches
+    if (p1Stats.speed >= 3) {
+      const healthGain = getHealthGain(p1Stats.defense);
+      result.player1Effects.push({ type: 'health_gain', value: healthGain });
+      result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... gains ${healthGain} health from dodging with speed 3!`);
+    }
   } else if (player1Action === BATTLE_ACTIONS.DODGE && player2Action === BATTLE_ACTIONS.KICK) {
-    // Dodge vs Kick - miss
-    result.logMessages.push(`${player2.walletAddress?.substring(0, 10)}... kicks, but ${player1.walletAddress?.substring(0, 10)}... dodges! Miss!`);
+    // Dodge vs Kick - base damage
+    const baseDamage = getBaseDamage(p2Stats.attack);
+    
+    // Speed bonus: kicks do more damage to dodges
+    const p2SpeedBonus = getSpeedBonus(p2Stats.speed);
+    if (p2SpeedBonus >= 1) {
+      const bonusDamage = Math.floor(baseDamage * 0.3 * p2SpeedBonus);
+      result.player1Damage = bonusDamage;
+      result.logMessages.push(`${player2.walletAddress?.substring(0, 10)}... kicks with speed bonus vs dodge! Damage: ${bonusDamage}`);
+    } else {
+      result.logMessages.push(`${player2.walletAddress?.substring(0, 10)}... kicks, but ${player1.walletAddress?.substring(0, 10)}... dodges! Miss!`);
+    }
+    
+    // Speed 3: Player 1 gains health when dodging kicks
+    if (p1Stats.speed >= 3) {
+      const healthGain = getHealthGain(p1Stats.defense);
+      result.player1Effects.push({ type: 'health_gain', value: healthGain });
+      result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... gains ${healthGain} health from dodging with speed 3!`);
+    }
   } else if (player1Action === BATTLE_ACTIONS.BLOCK && player2Action === BATTLE_ACTIONS.PUNCH) {
-    // Block vs Punch - reduced damage
-    const damage = Math.max(1, Math.floor(p2Stats.attack * 0.5));
+    // Block vs Punch - base damage reduced by defense
+    const baseDamage = getBaseDamage(p2Stats.attack);
+    const damage = Math.max(1, Math.floor(baseDamage * 0.5));
     result.player1Damage = damage;
-    result.logMessages.push(`${player2.walletAddress?.substring(0, 10)}... punches, but ${player1.walletAddress?.substring(0, 10)}... blocks! Reduced damage: ${damage}`);
+    
+    // Speed bonus: punches do more damage to blocks
+    const p2SpeedBonus = getSpeedBonus(p2Stats.speed);
+    if (p2SpeedBonus >= 1) {
+      const bonusDamage = Math.floor(baseDamage * 0.3 * p2SpeedBonus);
+      result.player1Damage += bonusDamage;
+      result.logMessages.push(`${player2.walletAddress?.substring(0, 10)}... punches with speed bonus vs block! Extra damage: +${bonusDamage}`);
+    }
+    
+    // Speed 3: Player 1 gains health when blocking punches
+    if (p1Stats.speed >= 3) {
+      const healthGain = getHealthGain(p1Stats.defense);
+      result.player1Effects.push({ type: 'health_gain', value: healthGain });
+      result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... gains ${healthGain} health from blocking with speed 3!`);
+    }
+    
+    result.logMessages.push(`${player2.walletAddress?.substring(0, 10)}... punches, but ${player1.walletAddress?.substring(0, 10)}... blocks! Total damage: ${result.player1Damage}`);
   } else if (player1Action === BATTLE_ACTIONS.BLOCK && player2Action === BATTLE_ACTIONS.KICK) {
-    // Block vs Kick - moderate damage
-    const damage = Math.max(1, Math.floor(p2Stats.attack * 0.7));
+    // Block vs Kick - base damage reduced by defense
+    const baseDamage = getBaseDamage(p2Stats.attack);
+    const damage = Math.max(1, Math.floor(baseDamage * 0.5));
     result.player1Damage = damage;
-    result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... kicks hard, but ${player1.walletAddress?.substring(0, 10)}... blocks! Damage: ${damage}`);
+    
+    // Speed bonus: kicks do more damage to blocks
+    const p2SpeedBonus = getSpeedBonus(p2Stats.speed);
+    if (p2SpeedBonus >= 1) {
+      const bonusDamage = Math.floor(baseDamage * 0.4 * p2SpeedBonus);
+      result.player1Damage += bonusDamage;
+      result.logMessages.push(`${player2.walletAddress?.substring(0, 10)}... kicks with speed bonus vs block! Extra damage: +${bonusDamage}`);
+    }
+    
+    // Speed 3: Player 1 gains health when blocking kicks
+    if (p1Stats.speed >= 3) {
+      const healthGain = getHealthGain(p1Stats.defense);
+      result.player1Effects.push({ type: 'health_gain', value: healthGain });
+      result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... gains ${healthGain} health from blocking with speed 3!`);
+    }
+    
+    result.logMessages.push(`${player2.walletAddress?.substring(0, 10)}... kicks hard, but ${player1.walletAddress?.substring(0, 10)}... blocks! Total damage: ${result.player1Damage}`);
   } else if (player1Action === BATTLE_ACTIONS.PUNCH && player2Action === BATTLE_ACTIONS.PUNCH) {
-    // Punch vs Punch - both take damage
-    const p1Damage = Math.max(1, p2Stats.attack);
-    const p2Damage = Math.max(1, p1Stats.attack);
+    // Punch vs Punch - both take same base damage
+    const p1Damage = getBaseDamage(p2Stats.attack);
+    const p2Damage = getBaseDamage(p1Stats.attack);
     result.player1Damage = p1Damage;
     result.player2Damage = p2Damage;
     result.logMessages.push(`Both players punch each other! ${player1.walletAddress?.substring(0, 10)}... takes ${p1Damage} damage, ${player2.walletAddress?.substring(0, 10)}... takes ${p2Damage} damage`);
   } else if (player1Action === BATTLE_ACTIONS.KICK && player2Action === BATTLE_ACTIONS.KICK) {
-    // Kick vs Kick - both take heavy damage
-    const p1Damage = Math.max(1, Math.floor(p2Stats.attack * 1.5));
-    const p2Damage = Math.max(1, Math.floor(p1Stats.attack * 1.5));
+    // Kick vs Kick - both take same base damage
+    const p1Damage = getBaseDamage(p2Stats.attack);
+    const p2Damage = getBaseDamage(p1Stats.attack);
     result.player1Damage = p1Damage;
     result.player2Damage = p2Damage;
-    result.logMessages.push(`Both players kick each other hard! ${player1.walletAddress?.substring(0, 10)}... takes ${p1Damage} damage, ${player2.walletAddress?.substring(0, 10)}... takes ${p2Damage} damage`);
+    result.logMessages.push(`Both players kick each other! ${player1.walletAddress?.substring(0, 10)}... takes ${p1Damage} damage, ${player2.walletAddress?.substring(0, 10)}... takes ${p2Damage} damage`);
   } else if (player1Action === BATTLE_ACTIONS.PUNCH && player2Action === BATTLE_ACTIONS.KICK) {
-    // Punch vs Kick - kick does more damage
-    const p1Damage = Math.max(1, Math.floor(p2Stats.attack * 1.3));
-    const p2Damage = Math.max(1, p1Stats.attack);
+    // Punch vs Kick - both do same base damage
+    const p1Damage = getBaseDamage(p2Stats.attack);
+    const p2Damage = getBaseDamage(p1Stats.attack);
     result.player1Damage = p1Damage;
     result.player2Damage = p2Damage;
-    result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... punches for ${p2Damage} damage, but ${player2.walletAddress?.substring(0, 10)}... kicks for ${p1Damage} damage!`);
+    result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... punches for ${p2Damage} damage, ${player2.walletAddress?.substring(0, 10)}... kicks for ${p1Damage} damage!`);
   } else if (player1Action === BATTLE_ACTIONS.KICK && player2Action === BATTLE_ACTIONS.PUNCH) {
-    // Kick vs Punch - kick does more damage
-    const p1Damage = Math.max(1, p2Stats.attack);
-    const p2Damage = Math.max(1, Math.floor(p1Stats.attack * 1.3));
+    // Kick vs Punch - both do same base damage
+    const p1Damage = getBaseDamage(p2Stats.attack);
+    const p2Damage = getBaseDamage(p1Stats.attack);
     result.player1Damage = p1Damage;
     result.player2Damage = p2Damage;
-    result.logMessages.push(`${player2.walletAddress?.substring(0, 10)}... punches for ${p1Damage} damage, but ${player1.walletAddress?.substring(0, 10)}... kicks for ${p2Damage} damage!`);
+    result.logMessages.push(`${player2.walletAddress?.substring(0, 10)}... punches for ${p1Damage} damage, ${player1.walletAddress?.substring(0, 10)}... kicks for ${p2Damage} damage!`);
   } else if (player1Action === BATTLE_ACTIONS.DODGE && player2Action === BATTLE_ACTIONS.DODGE) {
     // Dodge vs Dodge - no damage
     result.logMessages.push(`Both players dodge! No damage dealt.`);
@@ -228,25 +390,25 @@ export function getBattleActionDescriptions() {
   return {
     [BATTLE_ACTIONS.PUNCH]: {
       name: 'Punch',
-      description: 'Quick attack with moderate damage',
+      description: 'Attack based on attack stat. Speed bonus vs dodges!',
       icon: '👊',
       color: 'bg-red-500 hover:bg-red-600'
     },
     [BATTLE_ACTIONS.KICK]: {
       name: 'Kick',
-      description: 'Powerful attack with high damage',
+      description: 'Attack based on attack stat. Speed bonus vs blocks!',
       icon: '🦵',
       color: 'bg-orange-500 hover:bg-orange-600'
     },
     [BATTLE_ACTIONS.DODGE]: {
       name: 'Dodge',
-      description: 'Avoid incoming attacks',
+      description: 'Avoid attacks. Speed 3+ gains health from dodging!',
       icon: '💨',
       color: 'bg-blue-500 hover:bg-blue-600'
     },
     [BATTLE_ACTIONS.BLOCK]: {
       name: 'Block',
-      description: 'Reduce damage from attacks',
+      description: 'Reduce damage. Speed 3+ gains health from blocking!',
       icon: '🛡️',
       color: 'bg-purple-500 hover:bg-purple-600'
     }

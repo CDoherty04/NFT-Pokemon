@@ -11,7 +11,7 @@ import {
 // GET /api/sessions/[id] - Get a specific session
 export async function GET(request, { params }) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const session = await getSessionById(id);
     
     if (!session) {
@@ -34,7 +34,7 @@ export async function GET(request, { params }) {
 // PUT /api/sessions/[id] - Update session status
 export async function PUT(request, { params }) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const { status } = await request.json();
     
     if (!status) {
@@ -66,7 +66,7 @@ export async function PUT(request, { params }) {
 // DELETE /api/sessions/[id] - Delete a session
 export async function DELETE(request, { params }) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const deleted = await deleteSession(id);
     
     if (!deleted) {
@@ -89,7 +89,7 @@ export async function DELETE(request, { params }) {
 // PATCH /api/sessions/[id] - Submit user action or reset battle
 export async function PATCH(request, { params }) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const body = await request.json();
     
     if (body.action) {

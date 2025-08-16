@@ -65,12 +65,12 @@ const SessionSchema = new mongoose.Schema({
     },
     user1Action: {
         type: String,
-        enum: ['attack', 'defense', 'special', 'flee', ''],
+        enum: ['punch', 'kick', 'dodge', 'block', ''],
         default: ''
     },
     user2Action: {
         type: String,
-        enum: ['attack', 'defense', 'special', 'flee', ''],
+        enum: ['punch', 'kick', 'dodge', 'block', ''],
         default: ''
     },
     battleLog: [{
@@ -530,61 +530,114 @@ const processBattleLogic = (user1Action, user2Action, session) => {
     let user1Damage = 0;
     let user2Damage = 0;
     
-    // Enhanced battle logic with damage calculations
-    if (user1Action === 'attack' && user2Action === 'defense') {
-        // Attack vs Defense - reduced damage
-        user1Damage = Math.max(1, Math.floor(user1Stats.attack * 0.5));
-        message = `User1 attacks but User2 defends! User2 takes ${user1Damage} damage.`;
-    } else if (user1Action === 'attack' && user2Action === 'attack') {
-        // Attack vs Attack - both take damage
-        user1Damage = Math.max(1, Math.floor(user2Stats.attack * 0.8));
-        user2Damage = Math.max(1, Math.floor(user1Stats.attack * 0.8));
-        message = `Both players attack! User1 takes ${user1Damage} damage, User2 takes ${user2Damage} damage.`;
-    } else if (user1Action === 'attack' && user2Action === 'special') {
-        // Attack vs Special - special takes more damage
-        user2Damage = Math.max(1, Math.floor(user1Stats.attack * 1.2));
-        message = `User1 attacks User2's special move! User2 takes ${user2Damage} damage.`;
-    } else if (user1Action === 'defense' && user2Action === 'attack') {
-        // Defense vs Attack - reduced damage
-        user2Damage = Math.max(1, Math.floor(user2Stats.attack * 0.5));
-        message = `User2 attacks but User1 defends! User1 takes ${user2Damage} damage.`;
-    } else if (user1Action === 'defense' && user2Action === 'defense') {
-        // Defense vs Defense - minimal damage
+    // NEW BATTLE MECHANICS: Using the updated battle logic
+    // Helper function to calculate speed bonuses
+    const getSpeedBonus = (speed) => {
+        if (speed >= 3) return 3; // Both bonuses + health gain
+        if (speed >= 2) return 2; // Enhanced damage
+        if (speed >= 1) return 1; // Basic bonus
+        return 0; // No bonus
+    };
+    
+    // Helper function to calculate base damage (same for punches and kicks)
+    const getBaseDamage = (attackStat) => Math.max(1, attackStat);
+    
+    // Helper function to calculate health gain from defense
+    const getHealthGain = (defenseStat) => Math.max(1, Math.floor(defenseStat * 0.5));
+    
+    // Process all action combinations
+    if (user1Action === 'punch' && user2Action === 'block') {
+        // Punch vs Block - reduced damage
+        const baseDamage = getBaseDamage(user1Stats.attack);
+        const speedBonus = getSpeedBonus(user1Stats.speed);
+        user2Damage = baseDamage + speedBonus;
+        message = `User1 punches but User2 blocks! User2 takes ${user2Damage} damage${speedBonus > 0 ? ` (includes ${speedBonus} speed bonus)` : ''}.`;
+    } else if (user1Action === 'kick' && user2Action === 'block') {
+        // Kick vs Block - reduced damage
+        const baseDamage = getBaseDamage(user1Stats.attack);
+        const speedBonus = getSpeedBonus(user1Stats.speed);
+        user2Damage = baseDamage + speedBonus;
+        message = `User1 kicks but User2 blocks! User2 takes ${user2Damage} damage${speedBonus > 0 ? ` (includes ${speedBonus} speed bonus)` : ''}.`;
+    } else if (user1Action === 'punch' && user2Action === 'dodge') {
+        // Punch vs Dodge - reduced damage
+        const baseDamage = getBaseDamage(user1Stats.attack);
+        const speedBonus = getSpeedBonus(user1Stats.speed);
+        user2Damage = baseDamage + speedBonus;
+        message = `User1 punches but User2 dodges! User2 takes ${user2Damage} damage${speedBonus > 0 ? ` (includes ${speedBonus} speed bonus)` : ''}.`;
+    } else if (user1Action === 'kick' && user2Action === 'dodge') {
+        // Kick vs Dodge - reduced damage
+        const baseDamage = getBaseDamage(user1Stats.attack);
+        const speedBonus = getSpeedBonus(user1Stats.speed);
+        user2Damage = baseDamage + speedBonus;
+        message = `User1 kicks but User2 dodges! User2 takes ${user2Damage} damage${speedBonus > 0 ? ` (includes ${speedBonus} speed bonus)` : ''}.`;
+    } else if (user2Action === 'punch' && user1Action === 'block') {
+        // User2 Punch vs User1 Block - reduced damage
+        const baseDamage = getBaseDamage(user2Stats.attack);
+        const speedBonus = getSpeedBonus(user2Stats.speed);
+        user1Damage = baseDamage + speedBonus;
+        message = `User2 punches but User1 blocks! User1 takes ${user1Damage} damage${speedBonus > 0 ? ` (includes ${speedBonus} speed bonus)` : ''}.`;
+    } else if (user2Action === 'kick' && user1Action === 'block') {
+        // User2 Kick vs User1 Block - reduced damage
+        const baseDamage = getBaseDamage(user2Stats.attack);
+        const speedBonus = getSpeedBonus(user2Stats.speed);
+        user1Damage = baseDamage + speedBonus;
+        message = `User2 kicks but User1 blocks! User1 takes ${user1Damage} damage${speedBonus > 0 ? ` (includes ${speedBonus} speed bonus)` : ''}.`;
+    } else if (user2Action === 'punch' && user1Action === 'dodge') {
+        // User2 Punch vs User1 Dodge - reduced damage
+        const baseDamage = getBaseDamage(user2Stats.attack);
+        const speedBonus = getSpeedBonus(user2Stats.speed);
+        user1Damage = baseDamage + speedBonus;
+        message = `User2 punches but User1 dodges! User1 takes ${user1Damage} damage${speedBonus > 0 ? ` (includes ${speedBonus} speed bonus)` : ''}.`;
+    } else if (user2Action === 'kick' && user1Action === 'block') {
+        // User2 Kick vs User1 Dodge - reduced damage
+        const baseDamage = getBaseDamage(user2Stats.attack);
+        const speedBonus = getSpeedBonus(user2Stats.speed);
+        user1Damage = baseDamage + speedBonus;
+        message = `User2 kicks but User1 dodges! User1 takes ${user1Damage} damage${speedBonus > 0 ? ` (includes ${speedBonus} speed bonus)` : ''}.`;
+    } else if (user1Action === 'punch' && user2Action === 'punch') {
+        // Punch vs Punch - equal damage
+        const baseDamage = getBaseDamage(user1Stats.attack);
+        const user2BaseDamage = getBaseDamage(user2Stats.attack);
+        user1Damage = user2BaseDamage;
+        user2Damage = baseDamage;
+        message = `Both players punch! User1 takes ${user1Damage} damage, User2 takes ${user2Damage} damage.`;
+    } else if (user1Action === 'kick' && user2Action === 'kick') {
+        // Kick vs Kick - equal damage
+        const baseDamage = getBaseDamage(user1Stats.attack);
+        const user2BaseDamage = getBaseDamage(user2Stats.attack);
+        user1Damage = user2BaseDamage;
+        user2Damage = baseDamage;
+        message = `Both players kick! User1 takes ${user1Damage} damage, User2 takes ${user2Damage} damage.`;
+    } else if (user1Action === 'punch' && user2Action === 'kick') {
+        // Punch vs Kick - equal damage
+        const baseDamage = getBaseDamage(user1Stats.attack);
+        const user2BaseDamage = getBaseDamage(user2Stats.attack);
+        user1Damage = user2BaseDamage;
+        user2Damage = baseDamage;
+        message = `User1 punches vs User2 kicks! User1 takes ${user1Damage} damage, User2 takes ${user2Damage} damage.`;
+    } else if (user1Action === 'kick' && user2Action === 'punch') {
+        // Kick vs Punch - equal damage
+        const baseDamage = getBaseDamage(user1Stats.attack);
+        const user2BaseDamage = getBaseDamage(user2Stats.attack);
+        user1Damage = user2BaseDamage;
+        user2Damage = baseDamage;
+        message = `User1 kicks vs User2 punches! User1 takes ${user1Damage} damage, User2 takes ${user2Damage} damage.`;
+    } else if (user1Action === 'dodge' && user2Action === 'dodge') {
+        // Dodge vs Dodge - minimal damage
         user1Damage = Math.max(1, Math.floor(user2Stats.attack * 0.3));
         user2Damage = Math.max(1, Math.floor(user1Stats.attack * 0.3));
-        message = `Both players defend! Minimal damage: User1 takes ${user1Damage}, User2 takes ${user2Damage}.`;
-    } else if (user1Action === 'defense' && user2Action === 'special') {
-        // Defense vs Special - special is weakened
-        user2Damage = Math.max(1, Math.floor(user2Stats.attack * 0.4));
-        message = `User1 defends against User2's special! User2's special is weakened, dealing ${user2Damage} damage.`;
-    } else if (user1Action === 'special' && user2Action === 'attack') {
-        // Special vs Attack - special takes more damage
-        user1Damage = Math.max(1, Math.floor(user2Stats.attack * 1.2));
-        message = `User2 attacks User1's special move! User1 takes ${user1Damage} damage.`;
-    } else if (user1Action === 'special' && user2Action === 'defense') {
-        // Special vs Defense - special is weakened
-        user1Damage = Math.max(1, Math.floor(user1Stats.attack * 0.4));
-        message = `User1 uses special but User2 defends! User1's special is weakened, dealing ${user1Damage} damage.`;
-    } else if (user1Action === 'special' && user2Action === 'special') {
-        // Special vs Special - both take heavy damage
-        user1Damage = Math.max(1, Math.floor(user2Stats.attack * 1.5));
-        user2Damage = Math.max(1, Math.floor(user1Stats.attack * 1.5));
-        message = `Special vs Special clash! Heavy damage: User1 takes ${user1Damage}, User2 takes ${user2Damage}.`;
-    } else if (user1Action === 'flee' || user2Action === 'flee') {
-        // Flee action
-        if (user1Action === 'flee' && user2Action === 'flee') {
-            message = `Both players flee! It's a draw.`;
-        } else if (user1Action === 'flee') {
-            user1Damage = Math.max(1, Math.floor(user2Stats.attack * 0.5));
-            message = `User1 flees! User1 takes ${user1Damage} damage while escaping.`;
-        } else {
-            user2Damage = Math.max(1, Math.floor(user1Stats.attack * 0.5));
-            message = `User2 flees! User2 takes ${user2Damage} damage while escaping.`;
-        }
+        message = `Both players dodge! Minimal damage: User1 takes ${user1Damage}, User2 takes ${user2Damage}.`;
+    } else if (user1Action === 'block' && user2Action === 'block') {
+        // Block vs Block - minimal damage
+        user1Damage = Math.max(1, Math.floor(user2Stats.attack * 0.3));
+        user2Damage = Math.max(1, Math.floor(user1Stats.attack * 0.3));
+        message = `Both players block! Minimal damage: User1 takes ${user1Damage}, User2 takes ${user2Damage}.`;
     } else {
-        // Default case
-        user1Damage = Math.max(1, Math.floor(user2Stats.attack * 0.8));
-        user2Damage = Math.max(1, Math.floor(user1Stats.attack * 0.8));
+        // Default case for any other combinations
+        const baseDamage = getBaseDamage(user1Stats.attack);
+        const user2BaseDamage = getBaseDamage(user2Stats.attack);
+        user1Damage = user2BaseDamage;
+        user2Damage = baseDamage;
         message = `Standard battle! User1 takes ${user1Damage} damage, User2 takes ${user2Damage} damage.`;
     }
     
