@@ -5,7 +5,8 @@ import {
   deleteSession,
   submitUserAction,
   checkAndProcessBattle,
-  resetBattleActions
+  resetBattleActions,
+  endBattle
 } from '../../../../../scripts/database.js';
 
 // GET /api/sessions/[id] - Get a specific session
@@ -125,6 +126,15 @@ export async function PATCH(request, { params }) {
         success: true, 
         session: session,
         message: 'Battle actions reset successfully'
+      });
+    } else if (body.endBattle) {
+      // Force end the current battle
+      const session = await endBattle(id);
+      
+      return NextResponse.json({ 
+        success: true, 
+        session: session,
+        message: 'Battle force ended successfully'
       });
     } else {
       return NextResponse.json(

@@ -638,7 +638,7 @@ const processBattleLogic = (user1Action, user2Action, session) => {
         const user2BaseDamage = getBaseDamage(user2Stats.attack);
         user1Damage = user2BaseDamage;
         user2Damage = baseDamage;
-        message = `Standard battle! User1 takes ${user1Damage} damage, User2 takes ${user2Damage} damage.`;
+        message = `Lets Battle!`;
     }
     
     return { 
@@ -826,6 +826,40 @@ const startNewBattle = async (sessionId) => {
     }
 };
 
+// Function to force end the current battle
+const endBattle = async (sessionId) => {
+    try {
+        console.log(`Force ending battle for session ${sessionId}`);
+        
+        const session = await Session.findOne({ sessionId: sessionId });
+        if (!session) {
+            throw new Error('Session not found');
+        }
+        
+        // Force end the battle by setting both players to 0 health
+        const updatedSession = await Session.findOneAndUpdate(
+            { sessionId: sessionId },
+            { 
+                $set: { 
+                    user1Action: '',
+                    user2Action: '',
+                    battlePhase: 'completed',
+                    user1Health: 0,
+                    user2Health: 0,
+                    updatedAt: new Date()
+                }
+            },
+            { new: true }
+        );
+        
+        console.log('Battle force ended successfully');
+        return updatedSession;
+    } catch (error) {
+        console.error('Error force ending battle:', error);
+        throw error;
+    }
+};
+
 // Expose the session management functions
 module.exports = {
     createSession,
@@ -843,5 +877,6 @@ module.exports = {
     processBattleLogic,
     resetBattleActions,
     processBattleRound,
-    startNewBattle
+    startNewBattle,
+    endBattle
 };
