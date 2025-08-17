@@ -21,6 +21,8 @@ export default function JoinGameScreen({
 
   const handleJoinGame = () => {
     if (hasValidGameCode() && avatarImage && hasValidAttributes()) {
+      console.log('JoinGameScreen - Sending gameCode:', `"${gameCode}"`, 'Length:', gameCode.length);
+      console.log('JoinGameScreen - gameCode type:', typeof gameCode);
       onJoinGame(gameCode, avatarImage, attributes);
     }
   };

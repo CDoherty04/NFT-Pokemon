@@ -175,9 +175,12 @@ const generateUniqueSessionId = async () => {
         sessionId = Math.floor(10000000 + Math.random() * 90000000).toString();
         attempts++;
         
+        console.log(`Generated session ID attempt ${attempts}: "${sessionId}"`);
+        
         // Check if this ID already exists
         const existingSession = await Session.findOne({ sessionId: sessionId });
         if (!existingSession) {
+            console.log(`Final unique session ID: "${sessionId}"`);
             return sessionId;
         }
         
@@ -207,6 +210,11 @@ const createSession = async (user1, status = 'waiting') => {
         
         // Generate a unique 8-digit session ID
         const sessionId = await generateUniqueSessionId();
+        console.log('createSession - Generated sessionId:', `"${sessionId}"`);
+        
+        // Calculate initial health
+        const initialHealth = 150 + (user1.attributes.defense * 30);
+        console.log('createSession - Calculated initial health:', initialHealth, 'for defense:', user1.attributes.defense);
         
         const session = new Session({
             sessionId: sessionId,
@@ -215,7 +223,7 @@ const createSession = async (user1, status = 'waiting') => {
                 image: user1.image,
                 attributes: user1.attributes
             },
-                         user1Health: 150 + (user1.attributes.defense * 30), // Base 150 + 30 per defense point
+            user1Health: initialHealth, // Base 150 + 30 per defense point
             status: 'waiting',
             battlePhase: 'waiting',
             currentRound: 1,
@@ -224,9 +232,11 @@ const createSession = async (user1, status = 'waiting') => {
         });
         
         console.log('Session object to save:', session);
+        console.log('Session object sessionId field:', `"${session.sessionId}"`);
         
         const savedSession = await session.save();
         console.log('Session created successfully:', savedSession.sessionId);
+        console.log('Saved session sessionId field:', `"${savedSession.sessionId}"`);
         console.log('Full saved session:', savedSession);
         return savedSession;
     } catch (error) {
@@ -274,20 +284,74 @@ const joinSession = async (sessionId, user2) => {
         // Ensure database connection is established
         await ensureConnection();
         
-        console.log('Joining session:', sessionId, 'with user2:', user2);
+        // Clean and validate the session ID
+        const cleanSessionId = sessionId.toString().trim();
+        console.log('Joining session - Original ID:', `"${sessionId}"`, 'Cleaned ID:', `"${cleanSessionId}"`);
+        console.log('Joining session with user2:', user2);
         
-        const session = await Session.findOne({ sessionId: sessionId });
+        // Log existing sessions for this user before joining
+        const existingUserSessions = await Session.find({
+            $or: [
+                { 'user1.walletAddress': user2.walletAddress },
+                { 'user2.walletAddress': user2.walletAddress }
+            ]
+        });
+        console.log('Existing sessions for user before joining:', existingUserSessions.map(s => ({
+            sessionId: s.sessionId,
+            status: s.status,
+            isActive: s.isActive,
+            user1: s.user1?.walletAddress?.substring(0, 10) + '...',
+            user2: s.user2?.walletAddress?.substring(0, 10) + '...'
+        })));
+        
+        // Use a more specific query to ensure we get the exact session
+        console.log('Searching for session with ID:', `"${cleanSessionId}"`);
+        const session = await Session.findOne({ 
+            sessionId: cleanSessionId,
+            isActive: true 
+        });
         
         if (!session) {
+            // Let's check if there are any sessions at all in the database
+            const allSessions = await Session.find({});
+            console.log('Total sessions in database:', allSessions.length);
+            console.log('All session IDs:', allSessions.map(s => s.sessionId));
+            
+            // Let's check if there are any sessions with similar IDs for debugging
+            const similarSessions = await Session.find({ 
+                sessionId: { $regex: cleanSessionId.substring(0, 4) }
+            });
+            console.log('No exact session found. Similar sessions:', similarSessions.map(s => ({
+                sessionId: s.sessionId,
+                status: s.status,
+                isActive: s.isActive
+            })));
             throw new Error('Session not found');
         }
         
-        console.log('Session found:', {
+        // Double-check that we found the exact session we were looking for
+        if (session.sessionId !== cleanSessionId) {
+            console.error('Session ID mismatch! Expected:', cleanSessionId, 'Found:', session.sessionId);
+            throw new Error('Session ID mismatch - this should not happen');
+        }
+        
+        console.log('Session found successfully:', {
             sessionId: session.sessionId,
             status: session.status,
             isActive: session.isActive,
             user2: session.user2
         });
+        
+        console.log('Session ID comparison - Expected:', `"${cleanSessionId}"`, 'Found:', `"${session.sessionId}"`, 'Match:', session.sessionId === cleanSessionId);
+        
+        // Debug: Log all active sessions to help troubleshoot
+        const allActiveSessions = await Session.find({ isActive: true });
+        console.log('All active sessions in database:', allActiveSessions.map(s => ({
+            sessionId: s.sessionId,
+            status: s.status,
+            user1: s.user1?.walletAddress?.substring(0, 10) + '...',
+            user2: s.user2?.walletAddress?.substring(0, 10) + '...'
+        })));
         
         if (!session.isActive) {
             throw new Error('Session is not active');
@@ -318,9 +382,14 @@ const joinSession = async (sessionId, user2) => {
         // Validate and normalize user2 attributes
         const normalizedAttributes = normalizeAttributes(user2.attributes);
         
+        // Calculate initial health for user2
+        const user2InitialHealth = 150 + (user2.attributes.defense * 30);
+        console.log('joinSession - Calculated user2 initial health:', user2InitialHealth, 'for defense:', user2.attributes.defense);
+        
         // Update the session with user2 and change status to active
+        console.log('Updating session with user2 data...');
         const updatedSession = await Session.findOneAndUpdate(
-            { sessionId: sessionId },
+            { sessionId: cleanSessionId },
             { 
                 $set: { 
                     user2: {
@@ -328,7 +397,7 @@ const joinSession = async (sessionId, user2) => {
                         image: user2.image,
                         attributes: user2.attributes
                     },
-                                         user2Health: 150 + (user2.attributes.defense * 30), // Base 150 + 30 per defense point
+                    user2Health: user2InitialHealth, // Base 150 + 30 per defense point
                     status: 'active',
                     battlePhase: 'action-selection',
                     updatedAt: new Date()
@@ -338,6 +407,29 @@ const joinSession = async (sessionId, user2) => {
         );
         
         console.log('User2 joined session successfully:', updatedSession.sessionId);
+        console.log('Updated session ID:', `"${updatedSession.sessionId}"`);
+        console.log('Final session object being returned:', {
+            sessionId: updatedSession.sessionId,
+            status: updatedSession.status,
+            isActive: updatedSession.isActive,
+            user2: updatedSession.user2
+        });
+        
+        // Log the final state of all sessions for this user
+        const finalUserSessions = await Session.find({
+            $or: [
+                { 'user1.walletAddress': user2.walletAddress },
+                { 'user2.walletAddress': user2.walletAddress }
+            ]
+        });
+        console.log('Final sessions for user after joining:', finalUserSessions.map(s => ({
+            sessionId: s.sessionId,
+            status: s.status,
+            isActive: s.isActive,
+            user1: s.user1?.walletAddress?.substring(0, 10) + '...',
+            user2: s.user2?.walletAddress?.substring(0, 10) + '...'
+        })));
+        
         return updatedSession;
     } catch (error) {
         console.error('Error joining session:', error);
@@ -357,12 +449,19 @@ const getSessionById = async (sessionId) => {
 
 const getSessionsByUserId = async (walletAddress) => {
     try {
+        // Only return active sessions for the user
         const sessions = await Session.find({
-            $or: [
-                { 'user1.walletAddress': walletAddress },
-                { 'user2.walletAddress': walletAddress }
+            $and: [
+                {
+                    $or: [
+                        { 'user1.walletAddress': walletAddress },
+                        { 'user2.walletAddress': walletAddress }
+                    ]
+                },
+                { isActive: true }
             ]
         });
+        console.log('getSessionsByUserId - Returning active sessions for wallet:', walletAddress.substring(0, 10) + '...', 'Count:', sessions.length);
         return sessions;
     } catch (error) {
         console.error('Error getting sessions by user:', error);
@@ -434,7 +533,13 @@ const deleteSession = async (sessionId) => {
 
 const getAllSessions = async () => {
     try {
-        const sessions = await Session.find({});
+        // Only return active sessions to prevent inactive sessions from being used
+        const sessions = await Session.find({ isActive: true });
+        console.log('getAllSessions - Returning active sessions only:', sessions.map(s => ({
+            sessionId: s.sessionId,
+            status: s.status,
+            isActive: s.isActive
+        })));
         return sessions;
     } catch (error) {
         console.error('Error getting all sessions:', error);
@@ -450,6 +555,21 @@ const submitUserAction = async (sessionId, userWalletAddress, action) => {
         const session = await Session.findOne({ sessionId: sessionId });
         if (!session) {
             throw new Error('Session not found');
+        }
+        
+        console.log('Session found before action submission:', {
+            sessionId: session.sessionId,
+            status: session.status,
+            isActive: session.isActive,
+            battlePhase: session.battlePhase,
+            user1Health: session.user1Health,
+            user2Health: session.user2Health,
+            user1Action: session.user1Action,
+            user2Action: session.user2Action
+        });
+        
+        if (!session.isActive) {
+            throw new Error(`Session ${sessionId} is not active (isActive: ${session.isActive})`);
         }
         
         console.log('Found session before update:', {
@@ -574,6 +694,11 @@ const processBattleLogic = (user1Action, user2Action, session) => {
     const user1Stats = session.user1.attributes || { attack: 1, defense: 1, speed: 1 };
     const user2Stats = session.user2.attributes || { attack: 1, defense: 1, speed: 1 };
     
+    console.log('Player stats for battle:', {
+        user1: { action: user1Action, stats: user1Stats },
+        user2: { action: user2Action, stats: user2Stats }
+    });
+    
     let message = '';
     let user1Damage = 0;
     let user2Damage = 0;
@@ -599,24 +724,28 @@ const processBattleLogic = (user1Action, user2Action, session) => {
         const baseDamage = getBaseDamage(user1Stats.attack);
         const speedBonus = getSpeedBonus(user1Stats.speed);
         user2Damage = baseDamage + speedBonus;
+        console.log('Punch vs Block damage calculation:', { baseDamage, speedBonus, totalDamage: user2Damage, user1Stats });
         message = `User1 punches but User2 blocks! User2 takes ${user2Damage} damage${speedBonus > 0 ? ` (includes ${speedBonus} speed bonus)` : ''}.`;
     } else if (user1Action === 'kick' && user2Action === 'block') {
         // Kick vs Block - reduced damage
         const baseDamage = getBaseDamage(user1Stats.attack);
         const speedBonus = getSpeedBonus(user1Stats.speed);
         user2Damage = baseDamage + speedBonus;
+        console.log('Kick vs Block damage calculation:', { baseDamage, speedBonus, totalDamage: user2Damage, user1Stats });
         message = `User1 kicks but User2 blocks! User2 takes ${user2Damage} damage${speedBonus > 0 ? ` (includes ${speedBonus} speed bonus)` : ''}.`;
     } else if (user1Action === 'punch' && user2Action === 'charge') {
         // Punch vs Charge - normal damage while opponent charges
         const baseDamage = getBaseDamage(user1Stats.attack);
         const speedBonus = getSpeedBonus(user1Stats.attack);
         user2Damage = baseDamage + speedBonus;
+        console.log('Punch vs Charge damage calculation:', { baseDamage, speedBonus, totalDamage: user2Damage, user1Stats });
         message = `User1 punches while User2 charges up! User2 takes ${user2Damage} damage${speedBonus > 0 ? ` (includes ${speedBonus} speed bonus)` : ''}.`;
          } else if (user1Action === 'kick' && user2Action === 'charge') {
          // Kick vs Charge - 1.5x damage while opponent charges
          const baseDamage = getBaseDamage(user1Stats.attack) * 1.5;
          const speedBonus = getSpeedBonus(user1Stats.attack);
          user2Damage = baseDamage + speedBonus;
+         console.log('Kick vs Charge damage calculation:', { baseDamage, speedBonus, totalDamage: user2Damage, user1Stats });
          message = `User1 kicks while User2 charges up! User2 takes ${user2Damage} damage${speedBonus > 0 ? ` (includes ${speedBonus} speed bonus)` : ''}.`;
     } else if (user2Action === 'punch' && user1Action === 'block') {
         // User2 Punch vs User1 Block - reduced damage
@@ -648,6 +777,14 @@ const processBattleLogic = (user1Action, user2Action, session) => {
         const user2BaseDamage = getBaseDamage(user2Stats.attack);
         user1Damage = user2BaseDamage;
         user2Damage = baseDamage;
+        console.log('Punch vs Punch damage calculation:', { 
+            user1BaseDamage: baseDamage, 
+            user2BaseDamage, 
+            user1Damage, 
+            user2Damage,
+            user1Stats,
+            user2Stats
+        });
         message = `Both players punch! User1 takes ${user1Damage} damage, User2 takes ${user2Damage} damage.`;
     } else if (user1Action === 'kick' && user2Action === 'kick') {
         // Kick vs Kick - equal damage
@@ -686,8 +823,11 @@ const processBattleLogic = (user1Action, user2Action, session) => {
         const user2BaseDamage = getBaseDamage(user2Stats.attack);
         user1Damage = user2BaseDamage;
         user2Damage = baseDamage;
+        console.log('Default action damage calculation:', { baseDamage, user2BaseDamage, user1Damage, user2Damage });
         message = `Lets Battle!`;
     }
+    
+    console.log('Final battle damage values:', { user1Damage, user2Damage, message });
     
     return { 
         message, 
@@ -724,16 +864,24 @@ const processBattleRound = async (session) => {
         const newUser1Health = Math.max(0, session.user1Health - battleResult.user1Damage);
         const newUser2Health = Math.max(0, session.user2Health - battleResult.user2Damage);
         
-        console.log('Health calculation:', {
+        console.log('Health calculation details:', {
             oldHealth: { user1: session.user1Health, user2: session.user2Health },
             damage: { user1: battleResult.user1Damage, user2: battleResult.user2Damage },
-            newHealth: { user1: newUser1Health, user2: newUser2Health }
+            newHealth: { user1: newUser1Health, user2: newUser2Health },
+            damageCalculation: {
+                user1: `${session.user1Health} - ${battleResult.user1Damage} = ${newUser1Health}`,
+                user2: `${session.user2Health} - ${battleResult.user2Damage} = ${newUser2Health}`
+            }
         });
         
         // Check if battle is over (one player has 0 health)
         const battleCompleted = newUser1Health <= 0 || newUser2Health <= 0;
         const winner = battleCompleted ? 
             (newUser1Health <= 0 ? 'user2' : 'user1') : null;
+        
+        if (battleCompleted) {
+            console.log('Battle completed! Winner:', winner, 'Reason: One player reached 0 health');
+        }
         
         // Determine battle phase
         const newBattlePhase = battleCompleted ? 'completed' : 'battle-resolution';
@@ -760,6 +908,15 @@ const processBattleRound = async (session) => {
             },
             { new: true }
         );
+        
+        console.log('Session updated after battle processing:', {
+            sessionId: updatedSession.sessionId,
+            oldHealth: { user1: session.user1Health, user2: session.user2Health },
+            newHealth: { user1: updatedSession.user1Health, user2: updatedSession.user2Health },
+            battlePhase: { old: session.battlePhase, new: updatedSession.battlePhase },
+            isActive: updatedSession.isActive,
+            currentRound: updatedSession.currentRound
+        });
         
         console.log('Battle log entry added:', {
             message: battleResult.message,
@@ -882,6 +1039,13 @@ const startNewBattle = async (sessionId) => {
         }
         
         // Reset everything for a new battle
+        const user1NewHealth = 150 + (session.user1.attributes.defense * 30);
+        const user2NewHealth = 150 + (session.user2.attributes.defense * 30);
+        console.log('startNewBattle - Calculated new health values:', {
+            user1: { defense: session.user1.attributes.defense, health: user1NewHealth },
+            user2: { defense: session.user2.attributes.defense, health: user2NewHealth }
+        });
+        
         const updatedSession = await Session.findOneAndUpdate(
             { sessionId: sessionId },
             { 
@@ -890,8 +1054,8 @@ const startNewBattle = async (sessionId) => {
                     user2Action: '',
                     battlePhase: 'action-selection',
                     currentRound: 1,
-                                         user1Health: 150 + (session.user1.attributes.defense * 30), // Reset to full health
-                     user2Health: 150 + (session.user2.attributes.defense * 30), // Reset to full health
+                    user1Health: user1NewHealth, // Reset to full health
+                    user2Health: user2NewHealth, // Reset to full health
                     updatedAt: new Date()
                 },
                 $unset: { battleLog: 1 } // Clear battle log for new battle
@@ -1060,6 +1224,87 @@ const getBattleResult = async (sessionId) => {
     }
 };
 
+// Function to deactivate all sessions for a specific wallet address
+const deactivateSessionsForWallet = async (walletAddress, excludeSessionId = null) => {
+    try {
+        await ensureConnection();
+        
+        console.log(`Deactivating all sessions for wallet: ${walletAddress}${excludeSessionId ? `, excluding session: ${excludeSessionId}` : ''}`);
+        
+        // First, let's see what sessions exist for this wallet
+        const existingSessions = await Session.find({
+            $or: [
+                { 'user1.walletAddress': walletAddress },
+                { 'user2.walletAddress': walletAddress }
+            ],
+            isActive: true
+        });
+        
+        console.log(`Found ${existingSessions.length} active sessions for wallet ${walletAddress}:`, 
+            existingSessions.map(s => ({
+                sessionId: s.sessionId,
+                status: s.status,
+                user1: s.user1?.walletAddress?.substring(0, 10) + '...',
+                user2: s.user2?.walletAddress?.substring(0, 10) + '...'
+            }))
+        );
+        
+        // Build the query to exclude the session that was just joined
+        const deactivateQuery = {
+            $or: [
+                { 'user1.walletAddress': walletAddress },
+                { 'user2.walletAddress': walletAddress }
+            ],
+            isActive: true
+        };
+        
+        // If we have a session to exclude, add it to the query
+        if (excludeSessionId) {
+            deactivateQuery.sessionId = { $ne: excludeSessionId };
+            console.log(`Excluding session ${excludeSessionId} from deactivation`);
+        }
+        
+        console.log('Deactivation query:', JSON.stringify(deactivateQuery, null, 2));
+        
+        // Find all sessions where this wallet is either user1 or user2 (excluding the joined session)
+        const result = await Session.updateMany(
+            deactivateQuery,
+            {
+                $set: {
+                    isActive: false,
+                    status: 'completed',
+                    updatedAt: new Date()
+                }
+            }
+        );
+        
+        console.log(`Deactivated ${result.modifiedCount} sessions for wallet ${walletAddress}${excludeSessionId ? ` (excluding session ${excludeSessionId})` : ''}`);
+        
+        // Log which sessions were actually deactivated
+        if (result.modifiedCount > 0) {
+            const deactivatedSessions = await Session.find({
+                $or: [
+                    { 'user1.walletAddress': walletAddress },
+                    { 'user2.walletAddress': walletAddress }
+                ],
+                isActive: false,
+                updatedAt: { $gte: new Date(Date.now() - 1000) } // Sessions updated in the last second
+            });
+            console.log('Recently deactivated sessions:', deactivatedSessions.map(s => ({
+                sessionId: s.sessionId,
+                status: s.status,
+                isActive: s.isActive,
+                user1: s.user1?.walletAddress?.substring(0, 10) + '...',
+                user2: s.user2?.walletAddress?.substring(0, 10) + '...'
+            })));
+        }
+        return result.modifiedCount;
+    } catch (error) {
+        console.error('Error deactivating sessions for wallet:', error);
+        throw error;
+    }
+};
+
 // Expose the session management functions
 module.exports = {
     createSession,
@@ -1081,5 +1326,6 @@ module.exports = {
     endBattle,
     completeBattle,
     submitWinnerChoice,
-    getBattleResult
+    getBattleResult,
+    deactivateSessionsForWallet
 };

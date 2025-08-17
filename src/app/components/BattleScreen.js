@@ -60,6 +60,17 @@ export default function BattleScreen({
   const [mintedTokens, setMintedTokens] = useState([]);
   const [showMechanicsPopup, setShowMechanicsPopup] = useState(false);
 
+  // Log the current battle when it changes
+  useEffect(() => {
+    console.log('BattleScreen - Received currentBattle:', {
+      sessionId: currentBattle?.sessionId,
+      status: currentBattle?.status,
+      isActive: currentBattle?.isActive,
+      user1: currentBattle?.user1?.walletAddress?.substring(0, 10) + '...',
+      user2: currentBattle?.user2?.walletAddress?.substring(0, 10) + '...'
+    });
+  }, [currentBattle]);
+
   // Handle action checking with loading state
   const handleCheckActions = async () => {
     if (onCheckForActions) {
@@ -149,6 +160,7 @@ export default function BattleScreen({
 
   const handleAction = (action) => {
     if (!userAction && !loading) {
+      console.log('BattleScreen - Submitting action:', action, 'for session:', currentBattle?.sessionId);
       setSelectedAction(action);
       onSubmitAction(action);
     }
@@ -517,30 +529,12 @@ export default function BattleScreen({
               The victor has shown you mercy! Your Kartikmon lives to fight another day.
             </p>
 
-            <div className="bg-green-900/30 rounded-2xl p-6 border border-green-500/30 mb-6">
-              <div className="flex items-center justify-center gap-4 mb-4">
-                <Heart className="w-12 h-12 text-green-400" />
-                <span className="text-2xl font-bold text-green-300">BOTH NFT'S WILL BE MINTED</span>
-                <Heart className="w-12 h-12 text-green-400" />
-              </div>
-              <p className="text-lg text-green-200">
-                The victor has made their choice. Now you can mint your spared Kartikmon NFT!
-              </p>
-            </div>
-
-            {/* Manual Mint Button for Loser */}
-            <div className="bg-blue-900/30 rounded-2xl p-6 border border-blue-500/30 mb-6">
-              <h5 className="text-xl font-bold text-blue-300 mb-3">🎯 Mint Your Spared NFT</h5>
-              <p className="text-blue-200 text-lg mb-4">
-                Click the button below to mint your spared Kartikmon NFT!
-              </p>
-              <button
-                onClick={handleLoserMintSpared}
-                className="px-8 py-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold rounded-xl hover:from-green-600 hover:to-emerald-700 transition-all duration-200 transform hover:scale-105"
-              >
-                💝 Mint My Spared NFT
-              </button>
-            </div>
+            <button
+              onClick={handleLoserMintSpared}
+              className="px-8 py-4 mb-6 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold rounded-xl hover:from-green-600 hover:to-emerald-700 transition-all duration-200 transform hover:scale-105"
+            >
+              💝 Mint My Spared NFT
+            </button>
 
             {/* Minting Status for Loser */}
             {mintingStatus && (
@@ -572,12 +566,6 @@ export default function BattleScreen({
                 </div>
               </div>
             )}
-
-            <div className="text-sm text-green-300/80">
-              <p>Your wallet: {getCurrentUserWalletAddress() || 'Address not available'}</p>
-              <p>Your Kartikmon: {getCurrentUserImage() ? 'Image Available' : 'No Image'}</p>
-              <p>Opponent's choice: SPARE</p>
-            </div>
           </div>
         </div>
       );
@@ -875,20 +863,6 @@ export default function BattleScreen({
             )}
           </div>
         </div>
-
-        {/* Control Buttons */}
-        <div className="flex justify-center gap-4 mt-8">
-          {battlePhase === 'completed' && (
-            <button
-              onClick={onResetBattle}
-              disabled={loading}
-              className="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold rounded-xl hover:from-green-600 hover:to-emerald-700 transition-all duration-200 transform hover:scale-105 disabled:opacity-50"
-            >
-              {loading ? 'Starting...' : '🎯 Start New Battle'}
-            </button>
-          )}
-        </div>
-
       </div>
 
       {/* Battle Mechanics Popup */}

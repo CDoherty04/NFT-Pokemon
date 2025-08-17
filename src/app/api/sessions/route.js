@@ -8,7 +8,8 @@ import {
   getWaitingSessions,
   updateSessionStatus, 
   deleteSession,
-  getAllSessions 
+  getAllSessions,
+  deactivateSessionsForWallet
 } from '../../../../scripts/database.js';
 
 // GET /api/sessions - Get all sessions or waiting sessions based on query parameter
@@ -65,9 +66,14 @@ export async function POST(request) {
       );
     }
 
-    console.log('Attempting to create session for user:', user1.walletAddress);
-    const session = await createSession(user1, status);
-    console.log('Successfully created session:', session.sessionId);
+         console.log('Attempting to create session for user:', user1.walletAddress);
+     const session = await createSession(user1, status);
+     console.log('Successfully created session:', session.sessionId);
+     
+     // Deactivate all existing sessions for this wallet, excluding the newly created one
+     console.log('Deactivating existing sessions for wallet:', user1.walletAddress);
+     const deactivatedCount = await deactivateSessionsForWallet(user1.walletAddress, session.sessionId);
+     console.log(`Deactivated ${deactivatedCount} existing sessions for wallet ${user1.walletAddress}`);
     
     return NextResponse.json({ success: true, session }, { status: 201 });
   } catch (error) {
@@ -97,6 +103,7 @@ export async function PATCH(request) {
     console.log('API received join request body:', body);
     
     const { sessionId, user2 } = body;
+    console.log('API - sessionId received:', `"${sessionId}"`, 'Type:', typeof sessionId, 'Length:', sessionId?.length);
     console.log('Extracted join data:', { sessionId, user2 });
     
     if (!sessionId || !user2) {
@@ -116,7 +123,35 @@ export async function PATCH(request) {
 
     console.log('Attempting to join session:', sessionId);
     const session = await joinSession(sessionId, user2);
+    
+    console.log('API - Session returned from joinSession:', {
+        sessionId: session.sessionId,
+        status: session.status,
+        isActive: session.isActive
+    });
+    
+    // Verify that we're returning the correct session
+    if (session.sessionId !== sessionId) {
+      console.error('ERROR: joinSession returned wrong session! Expected:', sessionId, 'Got:', session.sessionId);
+      throw new Error('Session mismatch - wrong session returned');
+    }
+    
+    // Verify that the session is active
+    if (!session.isActive) {
+      console.error('ERROR: joinSession returned inactive session! Session:', session.sessionId, 'isActive:', session.isActive);
+      throw new Error('Session is not active');
+    }
+    
+    // Deactivate all existing sessions for this wallet after successfully joining
+    console.log('Deactivating existing sessions for wallet:', user2.walletAddress);
+    const deactivatedCount = await deactivateSessionsForWallet(user2.walletAddress, sessionId);
+    console.log(`Deactivated ${deactivatedCount} existing sessions for wallet ${user2.walletAddress}`);
     console.log('Successfully joined session:', session.sessionId);
+    console.log('API - Final response session:', {
+        sessionId: session.sessionId,
+        status: session.status,
+        isActive: session.isActive
+    });
     
     return NextResponse.json({ success: true, session });
   } catch (error) {
