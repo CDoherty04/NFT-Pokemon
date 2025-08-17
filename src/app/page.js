@@ -774,7 +774,7 @@ function AppLogic({ currentWalletAddress, user }) {
     <div className="relative">
       {/* Header with Back Button, Wallet Widget, and Notifications */}
       <div className="fixed top-4 left-4 z-50">
-        {currentScreen !== 'menu' || currentScreen !== 'battle' && (
+        {currentScreen !== 'menu' && currentScreen !== 'battle' && (
           <button
             onClick={() => navigateToScreen('menu')}
             disabled={loading}
