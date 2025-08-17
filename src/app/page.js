@@ -795,6 +795,8 @@ function AppLogic({ currentWalletAddress, user }) {
             userAction={userAction}
             battlePhase={battlePhase}
             battleLog={battleLog}
+            contractAddress={contractAddress}
+            contractABI={contractABI}
           />
         );
       

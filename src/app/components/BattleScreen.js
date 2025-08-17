@@ -48,12 +48,16 @@ export default function BattleScreen({
   loading,
   userAction,
   battlePhase,
-  battleLog
+  battleLog,
+  contractAddress,
+  contractABI
 }) {
   const [isCheckingActions, setIsCheckingActions] = useState(false);
   const [lastActionCheck, setLastActionCheck] = useState(null);
   const [selectedAction, setSelectedAction] = useState(null);
   const [winnerChoice, setWinnerChoice] = useState(null);
+  const [mintingStatus, setMintingStatus] = useState(null);
+  const [mintedTokens, setMintedTokens] = useState([]);
 
   // Handle action checking with loading state
   const handleCheckActions = async () => {
@@ -97,6 +101,13 @@ export default function BattleScreen({
     if (!role || !currentBattle) return null;
     const opponentRole = role === 'user1' ? 'user2' : 'user1';
     return currentBattle[opponentRole]?.attributes;
+  };
+
+  const getOpponentWalletAddress = () => {
+    const role = getCurrentUserRole();
+    if (!role || !currentBattle) return null;
+    const opponentRole = role === 'user1' ? 'user2' : 'user1';
+    return currentBattle[opponentRole]?.walletAddress;
   };
 
   const getCurrentUserHealth = () => {
@@ -172,11 +183,119 @@ export default function BattleScreen({
     return getCurrentUserRole() === winner;
   };
 
-  // Handle winner's choice
+  // NFT Minting Functions
+  const mintNFT = async (recipientAddress, imageData, attributes, tokenType) => {
+    try {
+      // Check if wallet is connected
+      if (!window.ethereum) {
+        throw new Error('No Ethereum wallet detected. Please connect your wallet.');
+      }
+      
+      // Check if the recipient address is valid
+      if (!recipientAddress || recipientAddress === 'Unknown') {
+        throw new Error('Invalid recipient address for NFT minting.');
+      }
+      
+      setMintingStatus(`Minting ${tokenType} NFT for ${recipientAddress.substring(0, 10)}...`);
+      
+      // Create metadata for the NFT
+      const metadata = {
+        name: `Kartikmon ${tokenType}`,
+        description: `A ${tokenType} Kartikmon with attributes: Attack ${attributes.attack}, Defense ${attributes.defense}, Speed ${attributes.speed}`,
+        image: imageData,
+        attributes: [
+          { trait_type: "Attack", value: attributes.attack },
+          { trait_type: "Defense", value: attributes.defense },
+          { trait_type: "Speed", value: attributes.speed },
+          { trait_type: "Type", value: tokenType },
+          { trait_type: "Battle Session", value: currentBattle.sessionId }
+        ]
+      };
+
+      // Convert metadata to JSON string
+      const tokenURI = JSON.stringify(metadata);
+      
+      // Get the mint function from the contract ABI
+      const mintFunction = contractABI.find(func => func.name === 'mint');
+      
+      if (!mintFunction) {
+        throw new Error('Mint function not found in contract ABI');
+      }
+
+      // Create the contract instance
+      const { ethers } = await import('ethers');
+      
+      // Get the provider and signer
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      
+      // Verify the signer address matches the current wallet
+      const signerAddress = await signer.getAddress();
+      if (signerAddress.toLowerCase() !== currentWalletAddress.toLowerCase()) {
+        throw new Error('Connected wallet does not match the current user wallet.');
+      }
+      
+      // Create contract instance
+      const contract = new ethers.Contract(contractAddress, contractABI, signer);
+      
+      // Call the mint function
+      const tx = await contract.mint(recipientAddress, tokenURI);
+      
+      // Wait for transaction to be mined
+      const receipt = await tx.wait();
+      
+      // Get the minted token ID from the Transfer event
+      const transferEvent = receipt.logs.find(log => {
+        try {
+          const parsed = contract.interface.parseLog(log);
+          return parsed.name === 'Transfer';
+        } catch {
+          return false;
+        }
+      });
+      
+      let tokenId;
+      if (transferEvent) {
+        const parsed = contract.interface.parseLog(transferEvent);
+        tokenId = parsed.args[2].toString();
+      } else {
+        // Fallback: try to get the latest token ID
+        const balance = await contract.balanceOf(recipientAddress);
+        tokenId = balance.toString();
+      }
+      
+      const mintedToken = {
+        tokenId,
+        recipient: recipientAddress,
+        type: tokenType,
+        transactionHash: receipt.hash,
+        metadata
+      };
+      
+      setMintedTokens(prev => [...prev, mintedToken]);
+      setMintingStatus(`✅ ${tokenType} NFT minted successfully! Token ID: ${tokenId}`);
+      
+      console.log(`🎉 NFT minted successfully:`, mintedToken);
+      
+      return mintedToken;
+      
+    } catch (error) {
+      console.error(`Error minting ${tokenType} NFT:`, error);
+      setMintingStatus(`❌ Failed to mint ${tokenType} NFT: ${error.message}`);
+      throw error;
+    }
+  };
+
+  // Handle winner's choice and mint NFTs
   const handleWinnerChoice = async (choice) => {
     setWinnerChoice(choice);
     
     try {
+      // Validate contract setup
+      if (!contractAddress || !contractABI) {
+        throw new Error('Smart contract not properly configured. Please check your setup.');
+      }
+      
       // Submit the winner's choice to the API
       const response = await fetch(`/api/sessions/${currentBattle.sessionId}`, {
         method: 'PATCH',
@@ -192,22 +311,71 @@ export default function BattleScreen({
       if (data.success) {
         console.log(`🎉 Winner choice submitted successfully: ${choice}`);
         
+        // Start minting NFTs based on the choice
+        setMintingStatus('Starting NFT minting process...');
+        
         if (choice === 'spare') {
-          // Log that both NFTs will be minted
-          console.log(`🎉 Winner chose to SPARE! Both NFTs will be minted:`);
-          console.log(`🏆 Winner NFT (${currentWalletAddress}): ${getCurrentUserImage()}`);
-          console.log(`💔 Loser NFT (${getOpponentStats()?.walletAddress || 'Unknown'}): ${getOpponentImage()}`);
+          // Mint both NFTs
+          console.log(`🎉 Winner chose to SPARE! Minting both NFTs...`);
+          
+          try {
+            // Mint winner's NFT
+            const winnerNFT = await mintNFT(
+              currentWalletAddress,
+              getCurrentUserImage(),
+              getCurrentUserStats(),
+              'Victorious'
+            );
+            
+            // Mint loser's NFT
+            const loserNFT = await mintNFT(
+              getOpponentWalletAddress(),
+              getOpponentImage(),
+              getOpponentStats(),
+              'Spared'
+            );
+            
+            setMintingStatus(`✅ Both NFTs minted successfully! Winner: ${winnerNFT.tokenId}, Loser: ${loserNFT.tokenId}`);
+            
+            console.log(`🎉 Both NFTs minted successfully:`, {
+              winner: winnerNFT,
+              loser: loserNFT
+            });
+            
+          } catch (error) {
+            console.error('Error minting spared NFTs:', error);
+            setMintingStatus(`❌ Error minting spared NFTs: ${error.message}`);
+          }
+          
         } else if (choice === 'burn') {
-          // Log that only winner's NFT will be minted
-          console.log(`🔥 Winner chose to BURN! Only winner's NFT will be minted:`);
-          console.log(`🏆 Winner NFT (${currentWalletAddress}): ${getCurrentUserImage()}`);
-          console.log(`💀 Loser's Kartikmon was destroyed!`);
+          // Only mint winner's NFT
+          console.log(`🔥 Winner chose to BURN! Only minting winner's NFT...`);
+          
+          try {
+            const winnerNFT = await mintNFT(
+              currentWalletAddress,
+              getCurrentUserImage(),
+              getCurrentUserStats(),
+              'Victorious'
+            );
+            
+            setMintingStatus(`✅ Winner's NFT minted successfully! Token ID: ${winnerNFT.tokenId}`);
+            
+            console.log(`🔥 Winner's NFT minted successfully:`, winnerNFT);
+            
+          } catch (error) {
+            console.error('Error minting winner NFT:', error);
+            setMintingStatus(`❌ Error minting winner NFT: ${error.message}`);
+          }
         }
+        
       } else {
         console.error('Failed to submit winner choice:', data.error);
+        setMintingStatus(`❌ Failed to submit choice: ${data.error}`);
       }
     } catch (error) {
       console.error('Error submitting winner choice:', error);
+      setMintingStatus(`❌ Error: ${error.message}`);
     }
   };
 
@@ -273,29 +441,63 @@ export default function BattleScreen({
             </button>
           </div>
         ) : (
-          <div className="bg-white/10 rounded-2xl p-6 border border-white/20">
-            <h4 className="text-2xl font-bold text-white mb-4">
-              {winnerChoice === 'spare' ? '💝 Mercy Granted!' : '🔥 Destruction Complete!'}
-            </h4>
-            <p className="text-lg text-white/90 mb-4">
-              {winnerChoice === 'spare' 
-                ? 'Both Kartikmon will be minted as NFTs. Your opponent lives to fight another day!'
-                : 'Your opponent\'s Kartikmon has been destroyed. Only your NFT will be minted!'
-              }
-            </p>
-            <div className="text-sm text-white/70 font-mono">
-              {winnerChoice === 'spare' ? (
-                <div>
-                  <p>🏆 Winner NFT: {currentWalletAddress}</p>
-                  <p>💔 Loser NFT: {getOpponentStats()?.walletAddress || 'Unknown'}</p>
-                </div>
-              ) : (
-                <div>
-                  <p>🏆 Winner NFT: {currentWalletAddress}</p>
-                  <p>💀 Loser NFT: DESTROYED</p>
-                </div>
-              )}
+          <div className="space-y-6">
+            {/* Choice Confirmation */}
+            <div className="bg-white/10 rounded-2xl p-6 border border-white/20">
+              <h4 className="text-2xl font-bold text-white mb-4">
+                {winnerChoice === 'spare' ? '💝 Mercy Granted!' : '🔥 Destruction Complete!'}
+              </h4>
+              <p className="text-lg text-white/90 mb-4">
+                {winnerChoice === 'spare' 
+                  ? 'Both Kartikmon will be minted as NFTs. Your opponent lives to fight another day!'
+                  : 'Your opponent\'s Kartikmon has been destroyed. Only your NFT will be minted!'
+                }
+              </p>
+              <div className="text-sm text-white/70 font-mono">
+                {winnerChoice === 'spare' ? (
+                  <div>
+                    <p>🏆 Winner NFT: {currentWalletAddress}</p>
+                    <p>💔 Loser NFT: {getOpponentWalletAddress() || 'Address not available'}</p>
+                  </div>
+                ) : (
+                  <div>
+                    <p>🏆 Winner NFT: {currentWalletAddress}</p>
+                    <p>💀 Loser NFT: DESTROYED</p>
+                  </div>
+                )}
+              </div>
             </div>
+
+            {/* Minting Status */}
+            {mintingStatus && (
+              <div className="bg-blue-900/30 rounded-2xl p-6 border border-blue-500/30">
+                <h5 className="text-xl font-bold text-blue-300 mb-3">🔄 NFT Minting Status</h5>
+                <p className="text-blue-200 text-lg">{mintingStatus}</p>
+              </div>
+            )}
+
+            {/* Minted Tokens */}
+            {mintedTokens.length > 0 && (
+              <div className="bg-green-900/30 rounded-2xl p-6 border border-green-500/30">
+                <h5 className="text-xl font-bold text-green-300 mb-3">🎉 Successfully Minted NFTs</h5>
+                <div className="space-y-3">
+                  {mintedTokens.map((token, index) => (
+                    <div key={index} className="bg-white/10 rounded-xl p-4 text-left">
+                      <div className="flex justify-between items-start mb-2">
+                        <span className="text-green-300 font-bold">{token.type} NFT</span>
+                        <span className="text-green-200 text-sm">ID: {token.tokenId}</span>
+                      </div>
+                      <p className="text-green-200 text-sm mb-1">
+                        Recipient: {token.recipient.substring(0, 10)}...{token.recipient.substring(token.recipient.length - 8)}
+                      </p>
+                      <p className="text-green-200 text-sm">
+                        TX: {token.transactionHash.substring(0, 10)}...{token.transactionHash.substring(token.transactionHash.length - 8)}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -409,6 +611,37 @@ export default function BattleScreen({
             Session: {currentBattle?.sessionId}
           </p>
         </div>
+
+        {/* Global Minting Status */}
+        {(mintingStatus || mintedTokens.length > 0) && (
+          <div className="bg-gradient-to-br from-blue-500/20 to-indigo-500/20 backdrop-blur-sm rounded-2xl p-6 mb-6 border-2 border-blue-400/50">
+            <h3 className="text-2xl font-bold text-blue-300 mb-4 text-center">🔄 NFT Minting Status</h3>
+            
+            {mintingStatus && (
+              <div className="text-center mb-4">
+                <p className="text-blue-200 text-lg">{mintingStatus}</p>
+              </div>
+            )}
+            
+            {mintedTokens.length > 0 && (
+              <div className="space-y-3">
+                <h4 className="text-xl font-bold text-blue-300 text-center mb-3">🎉 Successfully Minted NFTs</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {mintedTokens.map((token, index) => (
+                    <div key={index} className="bg-white/10 rounded-xl p-4 text-center">
+                      <div className="text-blue-300 font-bold mb-2">{token.type} NFT</div>
+                      <div className="text-blue-200 text-sm space-y-1">
+                        <p>Token ID: {token.tokenId}</p>
+                        <p>Recipient: {token.recipient.substring(0, 10)}...{token.recipient.substring(token.recipient.length - 8)}</p>
+                        <p className="text-xs">TX: {token.transactionHash.substring(0, 10)}...{token.transactionHash.substring(token.transactionHash.length - 8)}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Battle Mechanics Summary */}
         <div className="bg-gradient-to-br from-blue-900/30 to-purple-900/30 backdrop-blur-sm rounded-2xl p-6 mb-6 border border-blue-400/30">
