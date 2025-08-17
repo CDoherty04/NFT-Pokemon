@@ -52,6 +52,7 @@ export default function BattleScreen({
 }) {
   const [isCheckingActions, setIsCheckingActions] = useState(false);
   const [lastActionCheck, setLastActionCheck] = useState(null);
+  const [selectedAction, setSelectedAction] = useState(null);
   const [winnerChoice, setWinnerChoice] = useState(null);
 
   // Handle action checking with loading state
@@ -136,6 +137,7 @@ export default function BattleScreen({
 
   const handleAction = (action) => {
     if (!userAction && !loading) {
+      setSelectedAction(action);
       onSubmitAction(action);
     }
   };
@@ -143,6 +145,13 @@ export default function BattleScreen({
   const canSubmitAction = () => {
     return battlePhase === 'action-selection' && !userAction && !loading;
   };
+
+  // Reset selected action when turn ends
+  useEffect(() => {
+    if (battlePhase !== 'action-selection') {
+      setSelectedAction(null);
+    }
+  }, [battlePhase]);
 
   // Check if battle is completed and determine winner/loser
   const isBattleCompleted = () => {
@@ -522,8 +531,8 @@ export default function BattleScreen({
                 onClick={() => handleAction(BATTLE_ACTIONS.PUNCH)}
                 disabled={!canSubmitAction()}
                 className={`p-6 rounded-2xl font-bold text-lg transition-all duration-200 transform hover:scale-105 ${canSubmitAction()
-                  ? 'bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700 shadow-lg hover:shadow-red-500/50'
-                  : 'bg-gray-500 text-gray-300 cursor-not-allowed'
+                  ? `bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700 shadow-lg hover:shadow-red-500/50 ${selectedAction === BATTLE_ACTIONS.PUNCH ? 'border-2 border-white' : ''}`
+                  : 'bg-gradient-to-r from-red-500 to-red-600 text-white opacity-50 cursor-not-allowed'
                   }`}
                 title={getBattleActionDescriptions()[BATTLE_ACTIONS.PUNCH].description}
               >
@@ -537,8 +546,8 @@ export default function BattleScreen({
                 onClick={() => handleAction(BATTLE_ACTIONS.KICK)}
                 disabled={!canSubmitAction()}
                 className={`p-6 rounded-2xl font-bold text-lg transition-all duration-200 transform hover:scale-105 ${canSubmitAction()
-                  ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white hover:from-orange-600 hover:to-orange-700 shadow-lg hover:shadow-orange-500/50'
-                  : 'bg-gray-500 text-gray-300 cursor-not-allowed'
+                  ? `bg-gradient-to-r from-orange-500 to-orange-600 text-white hover:from-orange-600 hover:to-orange-700 shadow-lg hover:shadow-orange-500/50 ${selectedAction === BATTLE_ACTIONS.KICK ? 'border-2 border-white' : ''}`
+                  : 'bg-gradient-to-r from-orange-500 to-orange-600 text-white opacity-50 cursor-not-allowed'
                   }`}
                 title={getBattleActionDescriptions()[BATTLE_ACTIONS.KICK].description}
               >
@@ -552,8 +561,8 @@ export default function BattleScreen({
                 onClick={() => handleAction(BATTLE_ACTIONS.DODGE)}
                 disabled={!canSubmitAction()}
                 className={`p-6 rounded-2xl font-bold text-lg transition-all duration-200 transform hover:scale-105 ${canSubmitAction()
-                  ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 shadow-lg hover:shadow-blue-500/50'
-                  : 'bg-gray-500 text-gray-300 cursor-not-allowed'
+                  ? `bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 shadow-lg hover:shadow-blue-500/50 ${selectedAction === BATTLE_ACTIONS.DODGE ? 'border-2 border-white' : ''}`
+                  : 'bg-gradient-to-r from-blue-500 to-blue-600 text-white opacity-50 cursor-not-allowed'
                   }`}
                 title={getBattleActionDescriptions()[BATTLE_ACTIONS.DODGE].description}
               >
@@ -567,8 +576,8 @@ export default function BattleScreen({
                 onClick={() => handleAction(BATTLE_ACTIONS.BLOCK)}
                 disabled={!canSubmitAction()}
                 className={`p-6 rounded-2xl font-bold text-lg transition-all duration-200 transform hover:scale-105 ${canSubmitAction()
-                  ? 'bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700 shadow-lg hover:shadow-purple-500/50'
-                  : 'bg-gray-500 text-gray-300 cursor-not-allowed'
+                  ? `bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700 shadow-lg hover:shadow-purple-500/50 ${selectedAction === BATTLE_ACTIONS.BLOCK ? 'border-2 border-white' : ''}`
+                  : 'bg-gradient-to-r from-purple-500 to-purple-600 text-white opacity-50 cursor-not-allowed'
                   }`}
                 title={getBattleActionDescriptions()[BATTLE_ACTIONS.BLOCK].description}
               >
