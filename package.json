@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "migrate": "node scripts/migrate-attributes.js",
-    "test-db": "node scripts/test-db-connection.js"
+    "test-db": "node scripts/test-db-connection.js",
+    "wipe-db": "node scripts/wipe-database.js"
   },
   "dependencies": {
     "@dynamic-labs/ethereum": "^4.27.0",
