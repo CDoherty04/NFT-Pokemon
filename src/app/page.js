@@ -99,7 +99,7 @@ function AppLogic({ currentWalletAddress, user }) {
   // Game creation functions
   const handleCreateGame = async (avatarImage, attributes) => {
     if (!avatarImage) {
-      setMessage('Please draw your Pokemon first!');
+      setMessage('Please draw your Kartikmon first!');
       return;
     }
 
@@ -152,7 +152,7 @@ function AppLogic({ currentWalletAddress, user }) {
           setBattlePhase('action-selection');
           setBattleLog([
             `Battle started between ${data.session.user1?.walletAddress?.substring(0, 10)}... and ${data.session.user2?.walletAddress?.substring(0, 10)}...`,
-            'Both Pokemon are ready for battle!',
+            'Both Kartikmon are ready for battle!',
             'Choose your actions simultaneously!'
           ]);
           
@@ -205,7 +205,7 @@ function AppLogic({ currentWalletAddress, user }) {
           setBattlePhase('action-selection');
           setBattleLog([
             `Battle started between ${data.session.user1?.walletAddress?.substring(0, 10)}... and ${data.session.user2?.walletAddress?.substring(0, 10)}...`,
-            'Both Pokemon are ready for battle!',
+            'Both Kartikmon are ready for battle!',
             'Choose your actions simultaneously!'
           ]);
           
@@ -232,7 +232,7 @@ function AppLogic({ currentWalletAddress, user }) {
   // Game joining functions
   const handleJoinGame = async (gameCode, avatarImage, attributes) => {
     if (!avatarImage) {
-      setMessage('Please draw your Pokemon first!');
+      setMessage('Please draw your Kartikmon first!');
       return;
     }
 
@@ -261,7 +261,7 @@ function AppLogic({ currentWalletAddress, user }) {
           setBattlePhase('action-selection');
           setBattleLog([
             `Battle started between ${data.session.user1?.walletAddress?.substring(0, 10)}... and ${data.session.user2?.walletAddress?.substring(0, 10)}...`,
-            'Both Pokemon are ready for battle!',
+            'Both Kartikmon are ready for battle!',
             'Choose your actions simultaneously!'
           ]);
         }
@@ -358,7 +358,7 @@ function AppLogic({ currentWalletAddress, user }) {
             setMessage(`🎯 New battle started! Both players have full health.`);
             setBattleLog([
               `New battle started between ${data.session.user1?.walletAddress?.substring(0, 10)}... and ${data.session.user2?.walletAddress?.substring(0, 10)}...`,
-              'Both Pokemon are ready for battle!',
+              'Both Kartikmon are ready for battle!',
               'Choose your actions simultaneously!'
             ]);
           }

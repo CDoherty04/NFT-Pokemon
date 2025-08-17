@@ -18,7 +18,7 @@ export default function MainMenu({ onNavigate, onConnectWallet, isConnected }) {
         {/* Game Title */}
         <div className="mb-16">
           <h1 className="text-6xl md:text-8xl font-bold text-white mb-4 drop-shadow-2xl">
-            NFT Pokemon
+            KARTIKMON
           </h1>
           <p className="text-xl md:text-2xl text-blue-200 font-medium">
             Battle with your hand-drawn creatures!
@@ -86,16 +86,22 @@ export default function MainMenu({ onNavigate, onConnectWallet, isConnected }) {
           {/* Left Avatar */}
           <div className="hidden lg:block transform -translate-x-8">
             <div className="relative">
-              <div className="w-32 h-32 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full shadow-2xl border-4 border-white"></div>
-              <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-green-500 rounded-full border-2 border-white animate-pulse"></div>
+              <img 
+                src="/avatar1.png" 
+                alt="Kartikmon Avatar 1" 
+                className="w-48 h-48 object-cover rotate-320"
+              />
             </div>
           </div>
 
           {/* Right Avatar */}
           <div className="hidden lg:block transform translate-x-8">
             <div className="relative">
-              <div className="w-32 h-32 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full shadow-2xl border-4 border-white"></div>
-              <div className="absolute -bottom-2 -left-2 w-8 h-8 bg-red-500 rounded-full border-2 border-white animate-pulse"></div>
+              <img 
+                src="/avatar2.png" 
+                alt="Kartikmon Avatar 2" 
+                className="w-48 h-48 object-cover rotate-40"
+              />
             </div>
           </div>
         </div>

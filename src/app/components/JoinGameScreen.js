@@ -49,7 +49,7 @@ export default function JoinGameScreen({
             Join Battle
           </h1>
           <p className="text-xl text-blue-200">
-            Enter a game code and draw your Pokemon to join the fight!
+            Enter a game code and draw your Kartikmon to join the fight!
           </p>
         </div>
 
@@ -77,7 +77,7 @@ export default function JoinGameScreen({
 
         {/* Avatar Creation Section */}
         <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-8 mb-8 border border-white/20">
-          <h2 className="text-2xl font-bold text-white mb-6 text-center">Your Pokemon</h2>
+          <h2 className="text-2xl font-bold text-white mb-6 text-center">Your Kartikmon</h2>
           
           <div className="flex flex-col lg:flex-row items-center gap-8">
             {/* Avatar Display */}
@@ -89,7 +89,7 @@ export default function JoinGameScreen({
               >
                 <div className="flex items-center justify-center gap-3">
                   <Palette className="w-6 h-6" />
-                  <span>{avatarImage ? 'Redraw Pokemon' : 'Draw Your Pokemon'}</span>
+                  <span>{avatarImage ? 'Redraw Kartikmon' : 'Draw Your Kartikmon'}</span>
                 </div>
               </button>
               
@@ -97,14 +97,14 @@ export default function JoinGameScreen({
                 {avatarImage ? (
                   <img
                     src={avatarImage}
-                    alt="Your Pokemon"
+                    alt="Your Kartikmon"
                     className="w-full aspect-square rounded-2xl border-4 border-white/30 shadow-2xl"
                   />
                 ) : (
                   <div className="w-full aspect-square bg-white/20 rounded-2xl border-4 border-dashed border-white/30 flex items-center justify-center">
                     <div className="text-center text-white/60">
                       <Palette className="w-20 h-20 mx-auto mb-2" />
-                      <p className="text-lg">No Pokemon yet</p>
+                      <p className="text-lg">No Kartikmon yet</p>
                     </div>
                   </div>
                 )}
@@ -227,7 +227,7 @@ export default function JoinGameScreen({
           <div className="text-center">
             <h3 className="text-xl font-semibold text-white mb-4">Ready to join the battle?</h3>
             <p className="text-blue-200 mb-6">
-              Enter the game code and draw your Pokemon, then join the battle session!
+              Enter the game code and draw your Kartikmon, then join the battle session!
             </p>
             
             {canContinue ? (
@@ -264,7 +264,7 @@ export default function JoinGameScreen({
         isOpen={showDrawing}
         onClose={() => setShowDrawing(false)}
         onSave={handleSaveDrawing}
-        title="Draw Your Pokemon"
+        title="Draw Your Kartikmon"
       />
     </div>
   );

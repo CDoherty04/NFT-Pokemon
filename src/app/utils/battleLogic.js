@@ -1,5 +1,5 @@
 /**
- * Battle logic for Pokemon combat using session status for action tracking
+ * Battle logic for Kartikmon combat using session status for action tracking
  * 
  * NEW BATTLE MECHANICS:
  * - Punches and kicks now do the same base damage (based on attack stat)
