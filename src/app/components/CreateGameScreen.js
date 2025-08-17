@@ -17,6 +17,7 @@ export default function CreateGameScreen({
   const [avatarImage, setAvatarImage] = useState('');
   const [copied, setCopied] = useState(false);
   const [attributes, setAttributes] = useState({ attack: 0, defense: 0, speed: 0 });
+  const [ensNameInput, setEnsNameInput] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastChecked, setLastChecked] = useState(null);
 
@@ -79,6 +80,10 @@ export default function CreateGameScreen({
     setAvatarImage(imageDataUrl);
   };
 
+  const handleENSNameChange = (e) => {
+    setEnsNameInput(e.target.value);
+  };
+
   const handleContinue = () => {
     if (avatarImage && canContinue) {
       onContinueToBattle();
@@ -88,12 +93,13 @@ export default function CreateGameScreen({
   const handleCreateGame = () => {
     console.log('CreateGameScreen handleCreateGame called with:', {
       avatarImage: !!avatarImage,
-      attributes
+      attributes,
+      ensName: ensNameInput
     });
 
     if (avatarImage) {
       console.log('Calling onCreateGame...');
-      onCreateGame(avatarImage, attributes);
+      onCreateGame(avatarImage, attributes, ensNameInput);
     } else {
       console.log('No avatar image, cannot create game');
     }
@@ -275,6 +281,24 @@ export default function CreateGameScreen({
                       ))}
                     </div>
                   </div>
+                </div>
+
+                {/* ENS Name Input */}
+                <div className="mt-6 bg-white/10 rounded-xl p-4 border border-white/20">
+                  <h4 className="text-sm font-semibold text-white mb-3 text-center">🎭 Custom Name (Optional)</h4>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={ensNameInput}
+                      onChange={handleENSNameChange}
+                      placeholder="Enter custom name"
+                      className="flex-1 px-3 py-2 bg-white/10 border border-white/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    />
+                    <span className="text-gray-400 text-sm">.eth</span>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-2 text-center">
+                    This name will appear in battle logs instead of your wallet address
+                  </p>
                 </div>
 
                 {/* Progress Bar */}

@@ -101,20 +101,47 @@ function AppLogic({ currentWalletAddress, user }) {
   // Function to format address with ENS name for battle log
   const formatAddressForBattleLog = async (address) => {
     if (!address) return 'Unknown';
+    
+    // Debug: show all stored ENS names
+    debugENSStorage();
+    
+    // Check if this address has a saved custom ENS name (for both current user and opponent)
+    const savedENSName = localStorage.getItem(`ens_name_${address}`);
+    console.log(`ENS lookup for ${address}:`, { savedENSName, address });
+    
+    if (savedENSName) {
+      return `${savedENSName}.eth`;
+    }
+    
+    // If no custom name, try to resolve from blockchain ENS
     try {
       const ensName = await resolveAddress(address);
-      return ensName;
+      if (ensName && !ensName.includes('...')) {
+        return ensName;
+      }
     } catch (error) {
-      return `${address.substring(0, 10)}...`;
+      // Continue to fallback
     }
+    
+    // Fallback to truncated address
+    return `${address.substring(0, 10)}...`;
   };
 
   // Function to format address for battle logic (used in battleLogic.js)
   const formatAddressForBattleLogic = (address) => {
     if (!address) return 'Unknown';
+    
+    // Check if this address has a saved custom ENS name (for both current user and opponent)
+    const savedENSName = localStorage.getItem(`ens_name_${address}`);
+    if (savedENSName) {
+      return `${savedENSName}.eth`;
+    }
+    
     // For battle logic, we'll use a shorter format
     return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
   };
+
+
 
   // Navigation functions
   const navigateToScreen = (screen) => {
@@ -124,10 +151,16 @@ function AppLogic({ currentWalletAddress, user }) {
   };
 
   // Game creation functions
-  const handleCreateGame = async (avatarImage, attributes) => {
+  const handleCreateGame = async (avatarImage, attributes, ensName) => {
     if (!avatarImage) {
       setMessage('Please draw your Pokemon first!');
       return;
+    }
+
+    // Save ENS name to localStorage if provided
+    if (ensName && currentWalletAddress) {
+      console.log(`Saving ENS name for ${currentWalletAddress}:`, ensName);
+      localStorage.setItem(`ens_name_${currentWalletAddress}`, ensName);
     }
 
     setLoading(true);
@@ -325,10 +358,16 @@ function AppLogic({ currentWalletAddress, user }) {
   };
 
   // Game joining functions
-  const handleJoinGame = async (gameCode, avatarImage, attributes) => {
+  const handleJoinGame = async (gameCode, avatarImage, attributes, ensName) => {
     if (!avatarImage) {
       setMessage('Please draw your Pokemon first!');
       return;
+    }
+
+    // Save ENS name to localStorage if provided
+    if (ensName && currentWalletAddress) {
+      console.log(`Saving ENS name for ${currentWalletAddress}:`, ensName);
+      localStorage.setItem(`ens_name_${currentWalletAddress}`, ensName);
     }
 
     setLoading(true);
@@ -547,6 +586,16 @@ function AppLogic({ currentWalletAddress, user }) {
 
   // Helper functions
   const getMaxHealth = (defense) => 100 + (defense * 20);
+  
+  // Debug function to show all stored ENS names
+  const debugENSStorage = () => {
+    const keys = Object.keys(localStorage);
+    const ensKeys = keys.filter(key => key.startsWith('ens_name_'));
+    console.log('All ENS names in localStorage:', ensKeys.map(key => ({
+      address: key.replace('ens_name_', ''),
+      name: localStorage.getItem(key)
+    })));
+  };
 
   const fetchSessions = async () => {
     try {
@@ -900,28 +949,7 @@ function AppLogic({ currentWalletAddress, user }) {
               isConnected={!!currentWalletAddress}
             />
             
-            {/* ENS Resolution Demo */}
-            {currentWalletAddress && (
-              <div className="mt-8 p-6 bg-white/5 backdrop-blur-sm border border-white/20 rounded-xl max-w-2xl mx-auto">
-                <h3 className="text-xl font-semibold text-white mb-4">🔍 ENS Resolution Demo</h3>
-                <p className="text-gray-300 mb-4">
-                  Your wallet address with ENS resolution:
-                </p>
-                <div className="bg-white/10 rounded-lg p-4">
-                  <ENSAddress 
-                    address={currentWalletAddress}
-                    className="text-lg font-mono"
-                    showAddress={true}
-                  />
-                </div>
-                
-                <div className="mt-4 text-sm text-gray-400">
-                  <p>• ENS names are automatically resolved from Ethereum addresses</p>
-                  <p>• Hover over the address to see the full wallet address</p>
-                  <p>• If no ENS name exists, the address is truncated for readability</p>
-                </div>
-              </div>
-            )}
+
           </div>
         );
     }
