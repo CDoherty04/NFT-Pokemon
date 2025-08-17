@@ -75,6 +75,7 @@ function AppLogic({ currentWalletAddress, user }) {
   const [userAction, setUserAction] = useState('');
   const [battlePhase, setBattlePhase] = useState('waiting');
   const [battleLog, setBattleLog] = useState([]);
+  const [lastRoundMessageTime, setLastRoundMessageTime] = useState(null);
 
   // Form data
   const [createFormData, setCreateFormData] = useState({
@@ -252,6 +253,7 @@ function AppLogic({ currentWalletAddress, user }) {
           console.log('Session is active and ready for battle!');
           setCurrentBattle(data.session);
           setBattlePhase('action-selection');
+          setLastRoundMessageTime(null); // Reset round message timer for new battle
           setBattleLog([
             `Battle started between ${data.session.user1?.walletAddress?.substring(0, 10)}... and ${data.session.user2?.walletAddress?.substring(0, 10)}...`,
             'Both Pokemon are ready for battle!',
@@ -325,6 +327,7 @@ function AppLogic({ currentWalletAddress, user }) {
           // Set battle state immediately
           setCurrentBattle(data.session);
           setBattlePhase('action-selection');
+          setLastRoundMessageTime(null); // Reset round message timer for new battle
           setBattleLog([
             `Battle started between ${data.session.user2?.walletAddress?.substring(0, 10)}... and ${data.session.user1?.walletAddress?.substring(0, 10)}...`,
             'Both Pokemon are ready for battle!',
@@ -479,6 +482,7 @@ function AppLogic({ currentWalletAddress, user }) {
         if (data.session) {
           setCurrentBattle(data.session);
           setBattlePhase(data.session.battlePhase || 'action-selection');
+          setLastRoundMessageTime(null); // Reset round message timer for new battle
           
           if (battlePhase === 'completed') {
             setMessage(`🎯 New battle started! Both players have full health.`);
@@ -574,22 +578,61 @@ function AppLogic({ currentWalletAddress, user }) {
             
             // Check if actions were reset (new round)
             if (updatedSession.user1Action === '' && updatedSession.user2Action === '') {
+              console.log('Actions reset detected, checking battle phase transition:', {
+                currentPhase: currentBattle?.battlePhase,
+                newPhase: updatedSession.battlePhase,
+                shouldShowMessage: currentScreen === 'battle' && currentBattle?.battlePhase === 'battle-resolution'
+              });
+              
               setUserAction('');
               setCurrentBattle(updatedSession);
-              // Only show message if we're on the battle screen
-              if (currentScreen === 'battle') {
-                setMessage('🎯 New round starting! Choose your action.');
+              
+              // Only show message if we're transitioning from battle-resolution to action-selection
+              if (currentScreen === 'battle' && currentBattle?.battlePhase === 'battle-resolution') {
+                const now = Date.now();
+                const timeSinceLastMessage = lastRoundMessageTime ? now - lastRoundMessageTime : Infinity;
+                
+                // Only show message if it's been at least 3 seconds since the last one
+                if (timeSinceLastMessage > 3000) {
+                  console.log('Showing new round message and updating phase to action-selection');
+                  setMessage('🎯 New round starting! Choose your action.');
+                  setBattlePhase('action-selection');
+                  setLastRoundMessageTime(now);
+                } else {
+                  console.log('Skipping round message - too soon since last one:', timeSinceLastMessage);
+                  setBattlePhase('action-selection');
+                }
               }
               return;
             }
 
             // Check if round number increased
             if (updatedSession.currentRound > currentBattle.currentRound) {
+              console.log('Round number increased:', {
+                oldRound: currentBattle.currentRound,
+                newRound: updatedSession.currentRound,
+                currentPhase: currentBattle?.battlePhase,
+                shouldShowMessage: currentScreen === 'battle' && currentBattle?.battlePhase === 'battle-resolution'
+              });
+              
               setUserAction('');
               setCurrentBattle(updatedSession);
-              // Only show message if we're on the battle screen
-              if (currentScreen === 'battle') {
-                setMessage(`🎯 Round ${updatedSession.currentRound} started! Choose your action.`);
+              
+              // Only show message if we're transitioning from battle-resolution to action-selection
+              if (currentScreen === 'battle' && currentBattle?.battlePhase === 'battle-resolution') {
+                const now = Date.now();
+                const timeSinceLastMessage = lastRoundMessageTime ? now - lastRoundMessageTime : Infinity;
+                
+                // Only show message if it's been at least 3 seconds since the last one
+                if (timeSinceLastMessage > 3000) {
+                  console.log('Showing round start message and updating phase to action-selection');
+                  setMessage(`🎯 Round ${updatedSession.currentRound} started! Choose your action.`);
+                  setBattlePhase('action-selection');
+                  setLastRoundMessageTime(now);
+                } else {
+                  console.log('Skipping round start message - too soon since last one:', timeSinceLastMessage);
+                  setBattlePhase('action-selection');
+                }
               }
               return;
             }
@@ -654,9 +697,17 @@ function AppLogic({ currentWalletAddress, user }) {
             if (JSON.stringify(updatedSession) !== JSON.stringify(currentBattle)) {
               console.log('Updating currentBattle with new data:', {
                 oldHealth: { user1: currentBattle.user1Health, user2: currentBattle.user2Health },
-                newHealth: { user1: updatedSession.user1Health, user2: updatedSession.user2Health }
+                newHealth: { user1: updatedSession.user1Health, user2: updatedSession.user2Health },
+                oldPhase: currentBattle.battlePhase,
+                newPhase: updatedSession.battlePhase
               });
               setCurrentBattle(updatedSession);
+              
+              // Synchronize battle phase with database
+              if (updatedSession.battlePhase && updatedSession.battlePhase !== battlePhase) {
+                console.log('Syncing battle phase:', { old: battlePhase, new: updatedSession.battlePhase });
+                setBattlePhase(updatedSession.battlePhase);
+              }
             }
           }
         } catch (error) {

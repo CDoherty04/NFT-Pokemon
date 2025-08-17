@@ -191,7 +191,7 @@ export default function BattleScreen({
       if (!window.ethereum) {
         throw new Error('No Ethereum wallet detected. Please connect your wallet.');
       }
-      
+
       // Check if the recipient address is valid
       if (!recipientAddress || recipientAddress === 'Unknown') {
         throw new Error('Invalid recipient address for NFT minting.');
@@ -209,9 +209,9 @@ export default function BattleScreen({
           throw new Error(`Invalid ${attr} attribute: ${attributes[attr]}`);
         }
       }
-      
+
       setMintingStatus(`Minting ${tokenType} NFT for ${recipientAddress.substring(0, 10)}...`);
-      
+
       // Create metadata for the NFT
       const metadata = {
         name: `Kartikmon ${tokenType}`,
@@ -229,13 +229,13 @@ export default function BattleScreen({
       // Convert metadata to a JSON string and then to a data URI
       const metadataJson = JSON.stringify(metadata);
       const metadataUri = `data:application/json;base64,${btoa(metadataJson)}`;
-      
+
       console.log('Minting NFT with metadata:', metadata);
       console.log('Metadata URI length:', metadataUri.length);
-      
+
       // Get the mint function from the contract ABI
       const mintFunction = contractABI.find(func => func.name === 'mint');
-      
+
       if (!mintFunction) {
         throw new Error('Mint function not found in contract ABI');
       }
@@ -251,10 +251,17 @@ export default function BattleScreen({
       const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
 
-      // Verify the signer address matches the current wallet
+      // Verify the signer address matches the current user wallet
       const signerAddress = await signer.getAddress();
-      if (signerAddress.toLowerCase() !== currentWalletAddress.toLowerCase()) {
-        throw new Error('Connected wallet does not match the current user wallet.');
+
+      // Check if the signer is the current user (either winner or loser)
+      const currentUserWalletAddress = getCurrentUserWalletAddress();
+      if (!currentUserWalletAddress) {
+        throw new Error('Could not determine your wallet address. Please reconnect your wallet.');
+      }
+
+      if (signerAddress.toLowerCase() !== currentUserWalletAddress.toLowerCase()) {
+        throw new Error('Connected wallet does not match your wallet address. Please connect the correct wallet.');
       }
 
       // Create contract instance
@@ -308,16 +315,11 @@ export default function BattleScreen({
     }
   };
 
-  // Handle winner's choice and mint NFTs
+  // Handle winner's choice and record it
   const handleWinnerChoice = async (choice) => {
     setWinnerChoice(choice);
 
     try {
-      // Validate contract setup
-      if (!contractAddress || !contractABI) {
-        throw new Error('Smart contract not properly configured. Please check your setup.');
-      }
-
       // Submit the winner's choice to the API
       const response = await fetch(`/api/sessions/${currentBattle.sessionId}`, {
         method: 'PATCH',
@@ -325,77 +327,14 @@ export default function BattleScreen({
         body: JSON.stringify({
           winnerChoice: true,
           choice: choice,
-          userWalletAddress: currentWalletAddress
+          userWalletAddress: getCurrentUserWalletAddress()
         })
       });
 
       const data = await response.json();
       if (data.success) {
         console.log(`🎉 Winner choice submitted successfully: ${choice}`);
-
-        // Start minting NFTs based on the choice
-        setMintingStatus('Starting NFT minting process...');
-
-        if (choice === 'spare') {
-          // Mint winner's NFT only - loser will mint their own when they see the choice
-          console.log(`🎉 Winner chose to SPARE! Minting winner's NFT...`);
-          
-          // Debug: Show what data will be used for winner's NFT
-          console.log('Winner NFT Data (Spare):', {
-            address: currentWalletAddress,
-            image: getCurrentUserImage(),
-            stats: getCurrentUserStats(),
-            type: 'Victorious'
-          });
-
-          try {
-            // Mint winner's NFT only
-            const winnerNFT = await mintNFT(
-              currentWalletAddress,
-              getCurrentUserImage(),
-              getCurrentUserStats(),
-              'Victorious'
-            );
-
-            setMintingStatus(`✅ Winner's NFT minted successfully! Token ID: ${winnerNFT.tokenId}. The loser will mint their own NFT when they see they were spared.`);
-
-            console.log(`🎉 Winner's NFT minted successfully (Spare):`, winnerNFT);
-
-          } catch (error) {
-            console.error('Error minting winner NFT:', error);
-            setMintingStatus(`❌ Error minting winner NFT: ${error.message}`);
-          }
-
-        } else if (choice === 'burn') {
-          // Only mint winner's NFT
-          console.log(`🔥 Winner chose to BURN! Only minting winner's NFT...`);
-          
-          // Debug: Show what data will be used for winner's NFT
-          console.log('Winner NFT Data (Burn):', {
-            address: currentWalletAddress,
-            image: getCurrentUserImage(),
-            stats: getCurrentUserStats(),
-            type: 'Victorious'
-          });
-
-          try {
-            const winnerNFT = await mintNFT(
-              currentWalletAddress,
-              getCurrentUserImage(),
-              getCurrentUserStats(),
-              'Victorious'
-            );
-
-            setMintingStatus(`✅ Winner's NFT minted successfully! Token ID: ${winnerNFT.tokenId}`);
-
-            console.log(`🔥 Winner's NFT minted successfully:`, winnerNFT);
-
-          } catch (error) {
-            console.error('Error minting winner NFT:', error);
-            setMintingStatus(`❌ Error minting winner NFT: ${error.message}`);
-          }
-        }
-
+        setMintingStatus(`✅ Choice submitted: ${choice === 'spare' ? 'Mercy granted!' : 'Destruction chosen!'}`);
       } else {
         console.error('Failed to submit winner choice:', data.error);
         setMintingStatus(`❌ Failed to submit choice: ${data.error}`);
@@ -414,11 +353,17 @@ export default function BattleScreen({
         throw new Error('Smart contract not properly configured. Please check your setup.');
       }
 
+      // Get the current user's wallet address (the loser)
+      const loserWalletAddress = getCurrentUserWalletAddress();
+      if (!loserWalletAddress) {
+        throw new Error('Could not determine your wallet address. Please reconnect your wallet.');
+      }
+
       setMintingStatus('Minting your spared Kartikmon NFT...');
 
-      // Mint the loser's own NFT
+      // Mint the loser's own NFT to their own wallet
       const loserNFT = await mintNFT(
-        currentWalletAddress,
+        loserWalletAddress, // Use the loser's own wallet address
         getCurrentUserImage(),
         getCurrentUserStats(),
         'Spared'
@@ -432,6 +377,13 @@ export default function BattleScreen({
       console.error('Error minting spared NFT:', error);
       setMintingStatus(`❌ Error minting spared NFT: ${error.message}`);
     }
+  };
+
+  // Helper function to get current user's wallet address
+  const getCurrentUserWalletAddress = () => {
+    const role = getCurrentUserRole();
+    if (!role || !currentBattle) return null;
+    return currentBattle[role]?.walletAddress;
   };
 
   // Check if opponent has made their choice
@@ -477,7 +429,7 @@ export default function BattleScreen({
                 <Heart className="w-12 h-12" />
                 <span>SPARE</span>
                 <p className="text-sm font-normal opacity-90">
-                  Show mercy and mint your NFT. Loser will mint their own.
+                  Show mercy and mint your NFT. Loser can mint their own NFT.
                 </p>
               </div>
             </button>
@@ -504,23 +456,56 @@ export default function BattleScreen({
               </h4>
               <p className="text-lg text-white/90 mb-4">
                 {winnerChoice === 'spare' 
-                  ? 'Your NFT has been minted! The loser will mint their own NFT when they see they were spared.'
-                  : 'Your opponent\'s Kartikmon has been destroyed. Only your NFT will be minted!'
+                  ? 'You chose to spare your opponent. Now you can mint your NFT!'
+                  : 'Your opponent\'s Kartikmon has been destroyed. Now you can mint your NFT!'
                 }
               </p>
               <div className="text-sm text-white/70 font-mono">
                 {winnerChoice === 'spare' ? (
                   <div>
-                    <p>🏆 Winner NFT: {currentWalletAddress} (Winner\'s own Kartikmon) - MINTED</p>
-                    <p>💔 Loser NFT: {getOpponentWalletAddress() || 'Address not available'} (Loser will mint their own)</p>
+                    <p>🏆 Winner NFT: {getCurrentUserWalletAddress() || 'Address not available'} (Winner's own Kartikmon)</p>
+                    <p>💔 Loser NFT: {getOpponentWalletAddress() || 'Address not available'} (Loser can mint their own)</p>
                   </div>
                 ) : (
                   <div>
-                    <p>🏆 Winner NFT: {currentWalletAddress}</p>
-                    <p>�� Loser NFT: DESTROYED</p>
+                    <p>🏆 Winner NFT: {getCurrentUserWalletAddress() || 'Address not available'}</p>
+                    <p>💀 Loser NFT: DESTROYED</p>
                   </div>
                 )}
               </div>
+            </div>
+
+            {/* Manual Mint Button for Winner */}
+            <div className="bg-blue-900/30 rounded-2xl p-6 border border-blue-500/30">
+              <h5 className="text-xl font-bold text-blue-300 mb-3">🎯 Mint Your NFT</h5>
+              <p className="text-blue-200 text-lg mb-4">
+                Click the button below to mint your victorious Kartikmon NFT!
+              </p>
+              <button
+                onClick={async () => {
+                  try {
+                    const winnerWalletAddress = getCurrentUserWalletAddress();
+                    if (!winnerWalletAddress) {
+                      throw new Error('Could not determine your wallet address. Please reconnect your wallet.');
+                    }
+                    
+                    setMintingStatus('Minting your victorious NFT...');
+                    const winnerNFT = await mintNFT(
+                      winnerWalletAddress,
+                      getCurrentUserImage(),
+                      getCurrentUserStats(),
+                      'Victorious'
+                    );
+                    setMintingStatus(`✅ Your NFT minted successfully! Token ID: ${winnerNFT.tokenId}`);
+                  } catch (error) {
+                    console.error('Error minting winner NFT:', error);
+                    setMintingStatus(`❌ Error minting NFT: ${error.message}`);
+                  }
+                }}
+                className="px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-bold rounded-xl hover:from-blue-600 hover:to-purple-700 transition-all duration-200 transform hover:scale-105"
+              >
+                🎯 Mint My NFT
+              </button>
             </div>
 
             {/* Minting Status */}
@@ -564,7 +549,7 @@ export default function BattleScreen({
     const opponentChoice = getOpponentChoice();
 
     if (opponentChoice === 'spare') {
-      // Show spared result
+      // Show spared result with manual mint button
       return (
         <div className="bg-gradient-to-br from-green-500/20 to-emerald-500/20 backdrop-blur-sm rounded-2xl p-8 mb-8 border-2 border-green-400/50">
           <div className="text-center">
@@ -580,20 +565,21 @@ export default function BattleScreen({
                 <Heart className="w-12 h-12 text-green-400" />
               </div>
               <p className="text-lg text-green-200">
-                The victor has minted their NFT. Now you can mint your own spared Kartikmon NFT!
+                The victor has made their choice. Now you can mint your spared Kartikmon NFT!
               </p>
             </div>
 
-            {/* Mint Button for Loser */}
-            <div className="mb-6">
+            {/* Manual Mint Button for Loser */}
+            <div className="bg-blue-900/30 rounded-2xl p-6 border border-blue-500/30 mb-6">
+              <h5 className="text-xl font-bold text-blue-300 mb-3">🎯 Mint Your Spared NFT</h5>
+              <p className="text-blue-200 text-lg mb-4">
+                Click the button below to mint your spared Kartikmon NFT!
+              </p>
               <button
                 onClick={handleLoserMintSpared}
-                className="px-8 py-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold rounded-xl hover:from-green-600 hover:to-emerald-700 transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-green-500/50 border-2 border-green-400/50"
+                className="px-8 py-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold rounded-xl hover:from-green-600 hover:to-emerald-700 transition-all duration-200 transform hover:scale-105"
               >
-                <div className="flex items-center gap-3">
-                  <Heart className="w-6 h-6" />
-                  <span>Mint Your Spared Kartikmon NFT</span>
-                </div>
+                💝 Mint My Spared NFT
               </button>
             </div>
 
@@ -629,7 +615,7 @@ export default function BattleScreen({
             )}
             
             <div className="text-sm text-green-300/80">
-              <p>Your wallet: {currentWalletAddress}</p>
+              <p>Your wallet: {getCurrentUserWalletAddress() || 'Address not available'}</p>
               <p>Your Kartikmon: {getCurrentUserImage() ? 'Image Available' : 'No Image'}</p>
               <p>Opponent's choice: SPARE</p>
             </div>
@@ -658,7 +644,7 @@ export default function BattleScreen({
             </div>
 
             <div className="text-sm text-red-300/80">
-              <p>Your wallet: {currentWalletAddress}</p>
+              <p>Your wallet: {getCurrentUserWalletAddress() || 'Address not available'}</p>
               <p>Your Kartikmon: DESTROYED</p>
               <p>Opponent's choice: BURN</p>
             </div>
@@ -688,7 +674,7 @@ export default function BattleScreen({
             </div>
 
             <div className="text-sm text-red-300/80">
-              <p>Your wallet: {currentWalletAddress}</p>
+              <p>Your wallet: {getCurrentUserWalletAddress() || 'Address not available'}</p>
               <p>Your Kartikmon: {getCurrentUserImage() ? 'Image Available' : 'No Image'}</p>
             </div>
           </div>
@@ -697,342 +683,309 @@ export default function BattleScreen({
     }
   };
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-red-900 via-purple-900 to-indigo-900 p-4">
-      {/* Question Mark Icon - Top Left */}
-      <button
-        onClick={() => setShowMechanicsPopup(true)}
-        className="fixed top-6 left-6 z-50 bg-blue-600 hover:bg-blue-700 text-white rounded-full p-3 shadow-lg transition-all duration-200 hover:scale-110"
-        title="Battle Mechanics Help"
-      >
-        <HelpCircle size={24} />
-      </button>
+          return (
+          <div className="min-h-screen bg-gradient-to-br from-red-900 via-purple-900 to-indigo-900 p-4">
+            {/* Question Mark Icon - Top Left */}
+            <button
+              onClick={() => setShowMechanicsPopup(true)}
+              className="fixed top-6 left-6 z-50 bg-blue-600 hover:bg-blue-700 text-white rounded-full p-3 shadow-lg transition-all duration-200 hover:scale-110"
+              title="Battle Mechanics Help"
+            >
+              <HelpCircle size={24} />
+            </button>
 
-      {/* Header */}
-      <div className="max-w-6xl mx-auto">
-        {/* Battle Title */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl md:text-6xl font-bold text-white mb-4 drop-shadow-2xl">
-            ⚔️ BATTLE ARENA ⚔️
-          </h1>
-          <p className="text-xl text-red-200 font-medium">
-            Session: {currentBattle?.sessionId}
-          </p>
-        </div>
-
-        {/* Global Minting Status */}
-        {(mintingStatus || mintedTokens.length > 0) && (
-          <div className="bg-gradient-to-br from-blue-500/20 to-indigo-500/20 backdrop-blur-sm rounded-2xl p-6 mb-6 border-2 border-blue-400/50">
-            <h3 className="text-2xl font-bold text-blue-300 mb-4 text-center">🔄 NFT Minting Status</h3>
-
-            {mintingStatus && (
-              <div className="text-center mb-4">
-                <p className="text-blue-200 text-lg">{mintingStatus}</p>
+            {/* Header */}
+            <div className="max-w-6xl mx-auto">
+              {/* Battle Title */}
+              <div className="text-center mb-8">
+                <h1 className="text-4xl md:text-6xl font-bold text-white mb-4 drop-shadow-2xl">
+                  ⚔️ BATTLE ARENA ⚔️
+                </h1>
+                <p className="text-xl text-red-200 font-medium">
+                  Session: {currentBattle?.sessionId}
+                </p>
               </div>
-            )}
 
-            {mintedTokens.length > 0 && (
-              <div className="space-y-3">
-                <h4 className="text-xl font-bold text-blue-300 text-center mb-3">🎉 Successfully Minted NFTs</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {mintedTokens.map((token, index) => (
-                    <div key={index} className="bg-white/10 rounded-xl p-4 text-center">
-                      <div className="text-blue-300 font-bold mb-2">{token.type} NFT</div>
-                      <div className="text-blue-200 text-sm space-y-1">
-                        <p>Token ID: {token.tokenId}</p>
-                        <p>Recipient: {token.recipient.substring(0, 10)}...{token.recipient.substring(token.recipient.length - 8)}</p>
-                        <p className="text-xs">TX: {token.transactionHash.substring(0, 10)}...{token.transactionHash.substring(token.transactionHash.length - 8)}</p>
+              {/* Battle Arena */}
+              <div className="bg-gradient-to-br from-red-100/20 to-orange-100/20 backdrop-blur-sm rounded-3xl p-8 mb-8 border border-white/20">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+                  {/* Your Kartikmon */}
+                  <div className="text-center">
+                    <h3 className="text-2xl font-bold mb-6 text-blue-300">Your Kartikmon</h3>
+                    <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
+                      {getCurrentUserImage() ? (
+                        <img
+                          src={getCurrentUserImage()}
+                          alt="Your Kartikmon"
+                          className="w-40 h-40 mx-auto mb-6 rounded-2xl border-4 border-white/30 shadow-2xl"
+                        />
+                      ) : (
+                        <div className="w-40 h-40 mx-auto mb-6 bg-white/20 rounded-2xl border-4 border-dashed border-white/30 flex items-center justify-center">
+                          <span className="text-white/60">No Image</span>
+                        </div>
+                      )}
+
+                      {/* Health Bar */}
+                      <div className="mb-6">
+                        <div className="flex justify-between text-white mb-2">
+                          <span>❤️ HP</span>
+                          <span className="font-bold">
+                            {getCurrentUserHealth()}/{getMaxHealth(getCurrentUserStats()?.defense || 0)}
+                          </span>
+                        </div>
+                        <div className="w-full bg-white/20 rounded-full h-4">
+                          <div
+                            className={`h-4 rounded-full bg-gradient-to-r ${getHealthColor(getHealthPercentage(getCurrentUserHealth(), getMaxHealth(getCurrentUserStats()?.defense || 0)))} transition-all duration-500`}
+                            style={{
+                              width: `${getHealthPercentage(getCurrentUserHealth(), getMaxHealth(getCurrentUserStats()?.defense || 0))}%`
+                            }}
+                          ></div>
+                        </div>
+                      </div>
+
+                      {/* Stats */}
+                      <div className="space-y-3 text-white">
+                        <div className="flex justify-between group relative">
+                          <span>⚔️ Attack:</span>
+                          <span className="font-bold">{getCurrentUserStats()?.attack || 0}</span>
+                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-black/90 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                            Increases base damage and critical hit damage
+                          </div>
+                        </div>
+                        <div className="flex justify-between group relative">
+                          <span>🛡️ Defense:</span>
+                          <span className="font-bold">{getCurrentUserStats()?.defense || 0}</span>
+                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-black/90 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                            Increases max health and block effectiveness
+                          </div>
+                        </div>
+                        <div className="flex justify-between group relative">
+                          <span>⚡ Speed:</span>
+                          <span className="font-bold">{getCurrentUserStats()?.speed || 0}</span>
+                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-black/90 text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                            Increases critical hit chance, kick accuracy, and charge success
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-
-
-        {/* Battle Arena */}
-        <div className="bg-gradient-to-br from-red-100/20 to-orange-100/20 backdrop-blur-sm rounded-3xl p-8 mb-8 border border-white/20">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-            {/* Your Kartikmon */}
-            <div className="text-center">
-              <h3 className="text-2xl font-bold mb-6 text-blue-300">Your Kartikmon</h3>
-              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
-                {getCurrentUserImage() ? (
-                  <img
-                    src={getCurrentUserImage()}
-                    alt="Your Kartikmon"
-                    className="w-40 h-40 mx-auto mb-6 rounded-2xl border-4 border-white/30 shadow-2xl"
-                  />
-                ) : (
-                  <div className="w-40 h-40 mx-auto mb-6 bg-white/20 rounded-2xl border-4 border-dashed border-white/30 flex items-center justify-center">
-                    <span className="text-white/60">No Image</span>
                   </div>
-                )}
 
-                {/* Health Bar */}
-                <div className="mb-6">
-                  <div className="flex justify-between text-white mb-2">
-                    <span>❤️ HP</span>
-                    <span className="font-bold">
-                      {getCurrentUserHealth()}/{getMaxHealth(getCurrentUserStats()?.defense || 0)}
-                    </span>
-                  </div>
-                  <div className="w-full bg-white/20 rounded-full h-4">
-                    <div
-                      className={`h-4 rounded-full bg-gradient-to-r ${getHealthColor(getHealthPercentage(getCurrentUserHealth(), getMaxHealth(getCurrentUserStats()?.defense || 0)))} transition-all duration-500`}
-                      style={{
-                        width: `${getHealthPercentage(getCurrentUserHealth(), getMaxHealth(getCurrentUserStats()?.defense || 0))}%`
-                      }}
-                    ></div>
-                  </div>
-                </div>
+                  {/* Opponent Kartikmon */}
+                  <div className="text-center">
+                    <h3 className="text-2xl font-bold mb-6 text-red-300">Opponent Kartikmon</h3>
+                    <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
+                      {getOpponentImage() ? (
+                        <img
+                          src={getOpponentImage()}
+                          alt="Opponent Kartikmon"
+                          className="w-40 h-40 mx-auto mb-6 rounded-2xl border-4 border-white/30 shadow-2xl"
+                        />
+                      ) : (
+                        <div className="w-40 h-40 mx-auto mb-6 bg-white/20 rounded-2xl border-4 border-dashed border-white/30 flex items-center justify-center">
+                          <span className="text-white/60">No Image</span>
+                        </div>
+                      )}
 
-                {/* Stats */}
-                <div className="space-y-3 text-white">
-                  <div className="flex justify-between group relative">
-                    <span>⚔️ Attack:</span>
-                    <span className="font-bold">{getCurrentUserStats()?.attack || 0}</span>
-                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-black/90 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
-                      Increases base damage and critical hit damage
-                    </div>
-                  </div>
-                  <div className="flex justify-between group relative">
-                    <span>🛡️ Defense:</span>
-                    <span className="font-bold">{getCurrentUserStats()?.defense || 0}</span>
-                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-black/90 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
-                      Increases max health and block effectiveness
-                    </div>
-                  </div>
-                  <div className="flex justify-between group relative">
-                    <span>⚡ Speed:</span>
-                    <span className="font-bold">{getCurrentUserStats()?.speed || 0}</span>
-                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-black/90 text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
-                      Increases critical hit chance, kick accuracy, and charge success
+                      {/* Health Bar */}
+                      <div className="mb-6">
+                        <div className="flex justify-between text-white mb-2">
+                          <span>❤️ HP</span>
+                          <span className="font-bold">
+                            {getOpponentHealth()}/{getMaxHealth(getOpponentStats()?.defense || 0)}
+                          </span>
+                        </div>
+                        <div className="w-full bg-white/20 rounded-full h-4">
+                          <div
+                            className={`h-4 rounded-full bg-gradient-to-r ${getHealthColor(getHealthPercentage(getOpponentHealth(), getMaxHealth(getOpponentStats()?.defense || 0)))} transition-all duration-500`}
+                            style={{
+                              width: `${getHealthPercentage(getOpponentHealth(), getMaxHealth(getOpponentStats()?.defense || 0))}%`
+                            }}
+                          ></div>
+                        </div>
+                      </div>
+
+                      {/* Stats */}
+                      <div className="space-y-3 text-white">
+                        <div className="flex justify-between group relative">
+                          <span>⚔️ Attack:</span>
+                          <span className="font-bold">{getOpponentStats()?.attack || 0}</span>
+                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-black/90 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                            Increases base damage and critical hit damage
+                          </div>
+                        </div>
+                        <div className="flex justify-between group relative">
+                          <span>🛡️ Defense:</span>
+                          <span className="font-bold">{getOpponentStats()?.defense || 0}</span>
+                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-black/90 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                            Increases max health and block effectiveness
+                          </div>
+                        </div>
+                        <div className="flex justify-between group relative">
+                          <span>⚡ Speed:</span>
+                          <span className="font-bold">{getOpponentStats()?.speed || 0}</span>
+                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-2 bg-black/90 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                            Increases critical hit chance, kick accuracy, and charge success
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            {/* Opponent Kartikmon */}
-            <div className="text-center">
-              <h3 className="text-2xl font-bold mb-6 text-red-300">Opponent Kartikmon</h3>
-              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
-                {getOpponentImage() ? (
-                  <img
-                    src={getOpponentImage()}
-                    alt="Opponent Kartikmon"
-                    className="w-40 h-40 mx-auto mb-6 rounded-2xl border-4 border-white/30 shadow-2xl"
-                  />
-                ) : (
-                  <div className="w-40 h-40 mx-auto mb-6 bg-white/20 rounded-2xl border-4 border-dashed border-white/30 flex items-center justify-center">
-                    <span className="text-white/60">No Image</span>
-                  </div>
-                )}
+              {/* Winner/Loser Interface or Battle Actions */}
+              {isBattleCompleted() ? (
+                isCurrentUserWinner() ? renderWinnerInterface() : renderLoserInterface()
+              ) : (
+                /* Battle Actions */
+                <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-8 mb-8 border border-white/20">
+                  <h3 className="text-2xl font-bold text-white mb-6 text-center">Battle Actions</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <button
+                      onClick={() => handleAction(BATTLE_ACTIONS.PUNCH)}
+                      disabled={!canSubmitAction()}
+                      className={`p-6 rounded-2xl font-bold text-lg transition-all duration-200 transform hover:scale-105 ${canSubmitAction()
+                        ? `bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700 shadow-lg hover:shadow-red-500/50 ${selectedAction === BATTLE_ACTIONS.PUNCH ? 'border-2 border-white' : ''}`
+                        : 'bg-gradient-to-r from-red-500 to-red-600 text-white opacity-50 cursor-not-allowed'
+                        }`}
+                      title={getBattleActionDescriptions()[BATTLE_ACTIONS.PUNCH].description}
+                    >
+                      <div className="flex flex-col items-center gap-2">
+                        <Hand className="w-8 h-8" />
+                        <span>Punch</span>
+                      </div>
+                    </button>
 
-                {/* Health Bar */}
-                <div className="mb-6">
-                  <div className="flex justify-between text-white mb-2">
-                    <span>❤️ HP</span>
-                    <span className="font-bold">
-                      {getOpponentHealth()}/{getMaxHealth(getOpponentStats()?.defense || 0)}
-                    </span>
-                  </div>
-                  <div className="w-full bg-white/20 rounded-full h-4">
-                    <div
-                      className={`h-4 rounded-full bg-gradient-to-r ${getHealthColor(getHealthPercentage(getOpponentHealth(), getMaxHealth(getOpponentStats()?.defense || 0)))} transition-all duration-500`}
-                      style={{
-                        width: `${getHealthPercentage(getOpponentHealth(), getMaxHealth(getOpponentStats()?.defense || 0))}%`
-                      }}
-                    ></div>
+                    <button
+                      onClick={() => handleAction(BATTLE_ACTIONS.KICK)}
+                      disabled={!canSubmitAction()}
+                      className={`p-6 rounded-2xl font-bold text-lg transition-all duration-200 transform hover:scale-105 ${canSubmitAction()
+                        ? `bg-gradient-to-r from-orange-500 to-orange-600 text-white hover:from-orange-600 hover:to-orange-700 shadow-lg hover:shadow-orange-500/50 ${selectedAction === BATTLE_ACTIONS.KICK ? 'border-2 border-white' : ''}`
+                        : 'bg-gradient-to-r from-orange-500 to-orange-600 text-white opacity-50 cursor-not-allowed'
+                        }`}
+                      title={getBattleActionDescriptions()[BATTLE_ACTIONS.KICK].description}
+                    >
+                      <div className="flex flex-col items-center gap-2">
+                        <Footprints className="w-8 h-8" />
+                        <span>Kick</span>
+                      </div>
+                    </button>
+
+                    <button
+                      onClick={() => handleAction(BATTLE_ACTIONS.BLOCK)}
+                      disabled={!canSubmitAction()}
+                      className={`p-6 rounded-2xl font-bold text-lg transition-all duration-200 transform hover:scale-105 ${canSubmitAction()
+                        ? `bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700 shadow-lg hover:shadow-purple-500/50 ${selectedAction === BATTLE_ACTIONS.BLOCK ? 'border-2 border-white' : ''}`
+                        : 'bg-gradient-to-r from-purple-500 to-purple-600 text-white opacity-50 cursor-not-allowed'
+                        }`}
+                      title={getBattleActionDescriptions()[BATTLE_ACTIONS.BLOCK].description}
+                    >
+                      <div className="flex flex-col items-center gap-2">
+                        <Shield className="w-8 h-8" />
+                        <span>Block</span>
+                      </div>
+                    </button>
+
+                    <button
+                      onClick={() => handleAction(BATTLE_ACTIONS.CHARGE)}
+                      disabled={!canSubmitAction()}
+                      className={`p-6 rounded-2xl font-bold text-lg transition-all duration-200 transform hover:scale-105 ${canSubmitAction()
+                        ? `bg-gradient-to-r from-yellow-500 to-yellow-600 text-white hover:from-yellow-600 hover:to-yellow-700 shadow-lg hover:shadow-yellow-500/50 ${selectedAction === BATTLE_ACTIONS.CHARGE ? 'border-2 border-white' : ''}`
+                        : 'bg-gradient-to-r from-yellow-500 to-yellow-600 text-white opacity-50 cursor-not-allowed'
+                        }`}
+                      title={getBattleActionDescriptions()[BATTLE_ACTIONS.CHARGE].description}
+                    >
+                      <div className="flex flex-col items-center gap-2">
+                        <Zap className="w-8 h-8" />
+                        <span>Charge</span>
+                      </div>
+                    </button>
                   </div>
                 </div>
+              )}
 
-                {/* Stats */}
-                <div className="space-y-3 text-white">
-                  <div className="flex justify-between group relative">
-                    <span>⚔️ Attack:</span>
-                    <span className="font-bold">{getOpponentStats()?.attack || 0}</span>
-                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-black/90 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
-                      Increases base damage and critical hit damage
-                    </div>
-                  </div>
-                  <div className="flex justify-between group relative">
-                    <span>🛡️ Defense:</span>
-                    <span className="font-bold">{getOpponentStats()?.defense || 0}</span>
-                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-black/90 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
-                      Increases max health and block effectiveness
-                    </div>
-                  </div>
-                  <div className="flex justify-between group relative">
-                    <span>⚡ Speed:</span>
-                    <span className="font-bold">{getOpponentStats()?.speed || 0}</span>
-                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-2 bg-black/90 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
-                      Increases critical hit chance, kick accuracy, and charge success
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Winner/Loser Interface or Battle Actions */}
-        {isBattleCompleted() ? (
-          isCurrentUserWinner() ? renderWinnerInterface() : renderLoserInterface()
-        ) : (
-          /* Battle Actions */
-          <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-8 mb-8 border border-white/20">
-            <h3 className="text-2xl font-bold text-white mb-6 text-center">Battle Actions</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <button
-                onClick={() => handleAction(BATTLE_ACTIONS.PUNCH)}
-                disabled={!canSubmitAction()}
-                className={`p-6 rounded-2xl font-bold text-lg transition-all duration-200 transform hover:scale-105 ${canSubmitAction()
-                  ? `bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700 shadow-lg hover:shadow-red-500/50 ${selectedAction === BATTLE_ACTIONS.PUNCH ? 'border-2 border-white' : ''}`
-                  : 'bg-gradient-to-r from-red-500 to-red-600 text-white opacity-50 cursor-not-allowed'
-                  }`}
-                title={getBattleActionDescriptions()[BATTLE_ACTIONS.PUNCH].description}
-              >
-                <div className="flex flex-col items-center gap-2">
-                  <Hand className="w-8 h-8" />
-                  <span>Punch</span>
-                </div>
-              </button>
-
-              <button
-                onClick={() => handleAction(BATTLE_ACTIONS.KICK)}
-                disabled={!canSubmitAction()}
-                className={`p-6 rounded-2xl font-bold text-lg transition-all duration-200 transform hover:scale-105 ${canSubmitAction()
-                  ? `bg-gradient-to-r from-orange-500 to-orange-600 text-white hover:from-orange-600 hover:to-orange-700 shadow-lg hover:shadow-orange-500/50 ${selectedAction === BATTLE_ACTIONS.KICK ? 'border-2 border-white' : ''}`
-                  : 'bg-gradient-to-r from-orange-500 to-orange-600 text-white opacity-50 cursor-not-allowed'
-                  }`}
-                title={getBattleActionDescriptions()[BATTLE_ACTIONS.KICK].description}
-              >
-                <div className="flex flex-col items-center gap-2">
-                  <Footprints className="w-8 h-8" />
-                  <span>Kick</span>
-                </div>
-              </button>
-
-              <button
-                onClick={() => handleAction(BATTLE_ACTIONS.BLOCK)}
-                disabled={!canSubmitAction()}
-                className={`p-6 rounded-2xl font-bold text-lg transition-all duration-200 transform hover:scale-105 ${canSubmitAction()
-                  ? `bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700 shadow-lg hover:shadow-purple-500/50 ${selectedAction === BATTLE_ACTIONS.BLOCK ? 'border-2 border-white' : ''}`
-                  : 'bg-gradient-to-r from-purple-500 to-purple-600 text-white opacity-50 cursor-not-allowed'
-                  }`}
-                title={getBattleActionDescriptions()[BATTLE_ACTIONS.BLOCK].description}
-              >
-                <div className="flex flex-col items-center gap-2">
-                  <Shield className="w-8 h-8" />
-                  <span>Block</span>
-                </div>
-              </button>
-
-              <button
-                onClick={() => handleAction(BATTLE_ACTIONS.CHARGE)}
-                disabled={!canSubmitAction()}
-                className={`p-6 rounded-2xl font-bold text-lg transition-all duration-200 transform hover:scale-105 ${canSubmitAction()
-                  ? `bg-gradient-to-r from-yellow-500 to-yellow-600 text-white hover:from-yellow-600 hover:to-yellow-700 shadow-lg hover:shadow-yellow-500/50 ${selectedAction === BATTLE_ACTIONS.CHARGE ? 'border-2 border-white' : ''}`
-                  : 'bg-gradient-to-r from-yellow-500 to-yellow-600 text-white opacity-50 cursor-not-allowed'
-                  }`}
-                title={getBattleActionDescriptions()[BATTLE_ACTIONS.CHARGE].description}
-              >
-                <div className="flex flex-col items-center gap-2">
-                  <Zap className="w-8 h-8" />
-                  <span>Charge</span>
-                </div>
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Battle Log */}
-        <div className="bg-black/40 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
-          <h4 className="text-xl font-bold text-white mb-4 text-center">Battle Log</h4>
-          <div className="bg-black/60 rounded-xl p-4 font-mono text-sm max-h-64 overflow-y-auto">
-            {battleLog.length === 0 ? (
-              <p className="text-gray-400 text-center">No battle activity yet...</p>
-            ) : (
-              battleLog.map((log, index) => (
-                <div key={index} className="mb-2 text-green-400">
-                  {log.startsWith('🎯 Round') ? (
-                    <span className="text-yellow-400 font-bold">{log}</span>
-                  ) : log.includes('wins') ? (
-                    <span className="text-yellow-400 font-bold">{log}</span>
-                  ) : log.includes('damage') ? (
-                    <span className="text-red-400 font-semibold">{log}</span>
-                  ) : log.includes('health') ? (
-                    <span className="text-emerald-400 font-bold">{log}</span>
+              {/* Battle Log */}
+              <div className="bg-black/40 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
+                <h4 className="text-xl font-bold text-white mb-4 text-center">Battle Log</h4>
+                <div className="bg-black/60 rounded-xl p-4 font-mono text-sm max-h-64 overflow-y-auto">
+                  {battleLog.length === 0 ? (
+                    <p className="text-gray-400 text-center">No battle activity yet...</p>
                   ) : (
-                    <span>{log}</span>
+                    battleLog.map((log, index) => (
+                      <div key={index} className="mb-2 text-green-400">
+                        {log.startsWith('🎯 Round') ? (
+                          <span className="text-yellow-400 font-bold">{log}</span>
+                        ) : log.includes('wins') ? (
+                          <span className="text-yellow-400 font-bold">{log}</span>
+                        ) : log.includes('damage') ? (
+                          <span className="text-red-400 font-semibold">{log}</span>
+                        ) : log.includes('health') ? (
+                          <span className="text-emerald-400 font-bold">{log}</span>
+                        ) : (
+                          <span>{log}</span>
+                        )}
+                      </div>
+                    ))
                   )}
                 </div>
-              ))
+              </div>
+
+              {/* Control Buttons */}
+              <div className="flex justify-center gap-4 mt-8">
+                {battlePhase === 'completed' && (
+                  <button
+                    onClick={onResetBattle}
+                    disabled={loading}
+                    className="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold rounded-xl hover:from-green-600 hover:to-emerald-700 transition-all duration-200 transform hover:scale-105 disabled:opacity-50"
+                  >
+                    {loading ? 'Starting...' : '🎯 Start New Battle'}
+                  </button>
+                )}
+              </div>
+
+            </div>
+
+            {/* Battle Mechanics Popup */}
+            {showMechanicsPopup && (
+              <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                <div className="bg-gradient-to-br from-blue-900/95 to-purple-900/95 backdrop-blur-sm rounded-2xl p-8 max-w-2xl w-full border-2 border-blue-400/50 shadow-2xl">
+                  <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-2xl font-bold text-blue-300">⚔️ Battle Mechanics ⚔️</h3>
+                    <button
+                      onClick={() => setShowMechanicsPopup(false)}
+                      className="text-blue-300 hover:text-white text-2xl font-bold bg-blue-600/30 hover:bg-blue-600/50 rounded-full w-8 h-8 flex items-center justify-center transition-all duration-200"
+                    >
+                      ×
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm text-blue-200">
+                    <div className="space-y-3">
+                      <h4 className="text-lg font-bold text-blue-300 mb-3">🎯 Actions</h4>
+                      <p><strong>👊 Punch:</strong> Regular damage, 10% critical hit chance</p>
+                      <p><strong>🦵 Kick:</strong> Double damage, 50% miss chance (Speed reduces miss)</p>
+                      <p><strong>🛡️ Block:</strong> Reduces damage by 50%+ (Defense increases protection)</p>
+                      <p><strong>⚡ Charge:</strong> Next attack does double damage (Speed increases success)</p>
+                    </div>
+                    <div className="space-y-3">
+                      <h4 className="text-lg font-bold text-blue-300 mb-3">📊 Attributes</h4>
+                      <p><strong>⚔️ Attack:</strong> Increases base damage and critical hit damage</p>
+                      <p><strong>🛡️ Defense:</strong> Increases max health and block effectiveness</p>
+                      <p><strong>⚡ Speed:</strong> Increases critical hits, kick accuracy, and charge success</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 text-center">
+                    <button
+                      onClick={() => setShowMechanicsPopup(false)}
+                      className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 transform hover:scale-105"
+                    >
+                      Got it!
+                    </button>
+                  </div>
+                </div>
+              </div>
             )}
           </div>
-        </div>
-
-        {/* Control Buttons */}
-        <div className="flex justify-center gap-4 mt-8">
-          {battlePhase === 'completed' && (
-            <button
-              onClick={onResetBattle}
-              disabled={loading}
-              className="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold rounded-xl hover:from-green-600 hover:to-emerald-700 transition-all duration-200 transform hover:scale-105 disabled:opacity-50"
-            >
-              {loading ? 'Starting...' : '🎯 Start New Battle'}
-            </button>
-          )}
-        </div>
-
-      </div>
-
-      {/* Battle Mechanics Popup */}
-      {showMechanicsPopup && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-gradient-to-br from-blue-900/95 to-purple-900/95 backdrop-blur-sm rounded-2xl p-8 max-w-2xl w-full border-2 border-blue-400/50 shadow-2xl">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-2xl font-bold text-blue-300">⚔️ Battle Mechanics ⚔️</h3>
-              <button
-                onClick={() => setShowMechanicsPopup(false)}
-                className="text-blue-300 hover:text-white text-2xl font-bold bg-blue-600/30 hover:bg-blue-600/50 rounded-full w-8 h-8 flex items-center justify-center transition-all duration-200"
-              >
-                ×
-              </button>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm text-blue-200">
-              <div className="space-y-3">
-                <h4 className="text-lg font-bold text-blue-300 mb-3">🎯 Actions</h4>
-                <p><strong>👊 Punch:</strong> Regular damage, 10% critical hit chance</p>
-                <p><strong>🦵 Kick:</strong> Double damage, 50% miss chance (Speed reduces miss)</p>
-                <p><strong>🛡️ Block:</strong> Reduces damage by 50%+ (Defense increases protection)</p>
-                <p><strong>⚡ Charge:</strong> Next attack does double damage (Speed increases success)</p>
-              </div>
-              <div className="space-y-3">
-                <h4 className="text-lg font-bold text-blue-300 mb-3">📊 Attributes</h4>
-                <p><strong>⚔️ Attack:</strong> Increases base damage and critical hit damage</p>
-                <p><strong>🛡️ Defense:</strong> Increases max health and block effectiveness</p>
-                <p><strong>⚡ Speed:</strong> Increases critical hits, kick accuracy, and charge success</p>
-              </div>
-            </div>
-            
-            <div className="mt-6 text-center">
-              <button
-                onClick={() => setShowMechanicsPopup(false)}
-                className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 transform hover:scale-105"
-              >
-                Got it!
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+          );
 }
