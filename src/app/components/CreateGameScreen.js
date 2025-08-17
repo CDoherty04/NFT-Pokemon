@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ArrowLeft, Copy, Check, Palette, Users } from 'lucide-react';
+import { ArrowLeft, Copy, Check, Palette, Users, Upload } from 'lucide-react';
 import DrawingApp from './DrawingApp';
+import ImageProcessor from './ImageProcessor';
 
 export default function CreateGameScreen({ 
   onBack, 
@@ -13,6 +14,7 @@ export default function CreateGameScreen({
   canContinue 
 }) {
   const [showDrawing, setShowDrawing] = useState(false);
+  const [showImageProcessor, setShowImageProcessor] = useState(false);
   const [avatarImage, setAvatarImage] = useState('');
   const [copied, setCopied] = useState(false);
   const [attributes, setAttributes] = useState({ attack: 0, defense: 0, speed: 0 });
@@ -26,6 +28,11 @@ export default function CreateGameScreen({
   const handleSaveDrawing = (imageDataUrl) => {
     setAvatarImage(imageDataUrl);
     setShowDrawing(false);
+  };
+
+  const handleSaveProcessedImage = (imageDataUrl) => {
+    setAvatarImage(imageDataUrl);
+    setShowImageProcessor(false);
   };
 
   const handleContinue = () => {
@@ -95,16 +102,27 @@ export default function CreateGameScreen({
           <div className="flex flex-col lg:flex-row items-center gap-8">
             {/* Avatar Display */}
             <div className="flex-1 text-center">
-              {/* Draw Button Above Preview */}
-              <button
-                onClick={() => setShowDrawing(true)}
-                className="w-full px-6 py-4 mb-6 bg-gradient-to-r from-purple-500 to-pink-600 text-white font-bold text-lg rounded-xl hover:from-purple-600 hover:to-pink-700 transition-all duration-200 transform hover:scale-105"
-              >
-                <div className="flex items-center justify-center gap-3">
-                  <Palette className="w-6 h-6" />
-                  <span>{avatarImage ? 'Redraw Pokemon' : 'Draw Your Pokemon'}</span>
-                </div>
-              </button>
+              {/* Avatar Creation Buttons */}
+              <div className="flex gap-3 mb-6">
+                <button
+                  onClick={() => setShowDrawing(true)}
+                  className="flex-1 px-4 py-4 bg-gradient-to-r from-purple-500 to-pink-600 text-white font-bold text-lg rounded-xl hover:from-purple-600 hover:to-pink-700 transition-all duration-200 transform hover:scale-105"
+                >
+                  <div className="flex items-center justify-center gap-3">
+                    <Palette className="w-6 h-6" />
+                    <span>{avatarImage ? 'Redraw' : 'Draw'}</span>
+                  </div>
+                </button>
+                <button
+                  onClick={() => setShowImageProcessor(true)}
+                  className="flex-1 px-4 py-4 bg-gradient-to-r from-blue-500 to-cyan-600 text-white font-bold text-lg rounded-xl hover:from-blue-600 hover:to-cyan-700 transition-all duration-200 transform hover:scale-105"
+                >
+                  <div className="flex items-center justify-center gap-3">
+                    <Upload className="w-6 h-6" />
+                    <span>Upload</span>
+                  </div>
+                </button>
+              </div>
               
               <div className="relative w-full">
                 {avatarImage ? (
@@ -284,6 +302,14 @@ export default function CreateGameScreen({
         onClose={() => setShowDrawing(false)}
         onSave={handleSaveDrawing}
         title="Draw Your Pokemon"
+      />
+
+      {/* Image Processor Overlay */}
+      <ImageProcessor
+        isOpen={showImageProcessor}
+        onClose={() => setShowImageProcessor(false)}
+        onSave={handleSaveProcessedImage}
+        title="Process Avatar Image"
       />
     </div>
   );

@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ArrowLeft, Palette, Search, Users } from 'lucide-react';
+import { ArrowLeft, Palette, Search, Users, Upload } from 'lucide-react';
 import DrawingApp from './DrawingApp';
+import ImageProcessor from './ImageProcessor';
 
 export default function JoinGameScreen({ 
   onBack, 
@@ -12,6 +13,7 @@ export default function JoinGameScreen({
 }) {
   const [gameCode, setGameCode] = useState('');
   const [showDrawing, setShowDrawing] = useState(false);
+  const [showImageProcessor, setShowImageProcessor] = useState(false);
   const [avatarImage, setAvatarImage] = useState('');
   const [attributes, setAttributes] = useState({ attack: 0, defense: 0, speed: 0 });
 
