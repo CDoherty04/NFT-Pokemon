@@ -87,12 +87,12 @@ const SessionSchema = new mongoose.Schema({
     },
     user1Action: {
         type: String,
-        enum: ['punch', 'kick', 'dodge', 'block', ''],
+        enum: ['punch', 'kick', 'dodge', 'block', 'spare', 'burn', 'spared', 'destroyed', ''],
         default: ''
     },
     user2Action: {
         type: String,
-        enum: ['punch', 'kick', 'dodge', 'block', ''],
+        enum: ['punch', 'kick', 'dodge', 'block', 'spare', 'burn', 'spared', 'destroyed', ''],
         default: ''
     },
     battleLog: [{
@@ -937,6 +937,125 @@ const endBattle = async (sessionId) => {
     }
 };
 
+// Function to handle battle completion and set isActive to false
+const completeBattle = async (sessionId) => {
+    try {
+        console.log(`Completing battle for session ${sessionId}`);
+        
+        const session = await Session.findOne({ sessionId: sessionId });
+        if (!session) {
+            throw new Error('Session not found');
+        }
+        
+        // Set battle as completed and inactive
+        const updatedSession = await Session.findOneAndUpdate(
+            { sessionId: sessionId },
+            { 
+                $set: { 
+                    battlePhase: 'completed',
+                    isActive: false,
+                    updatedAt: new Date()
+                }
+            },
+            { new: true }
+        );
+        
+        console.log('Battle completed and session set to inactive');
+        return updatedSession;
+    } catch (error) {
+        console.error('Error completing battle:', error);
+        throw error;
+    }
+};
+
+// Function to submit winner's final choice (spare or burn)
+const submitWinnerChoice = async (sessionId, winnerWalletAddress, choice) => {
+    try {
+        console.log(`Submitting winner choice for session ${sessionId}: ${choice}`);
+        
+        const session = await Session.findOne({ sessionId: sessionId });
+        if (!session) {
+            throw new Error('Session not found');
+        }
+        
+        // Determine which user is the winner
+        let winnerField, loserField;
+        if (session.user1.walletAddress === winnerWalletAddress) {
+            winnerField = 'user1Action';
+            loserField = 'user2Action';
+        } else if (session.user2.walletAddress === winnerWalletAddress) {
+            winnerField = 'user2Action';
+            loserField = 'user1Action';
+        } else {
+            throw new Error('Winner wallet address not found in session');
+        }
+        
+        // Update the winner's action with their choice
+        const updateData = {
+            [winnerField]: choice,
+            updatedAt: new Date()
+        };
+        
+        // If choice is 'burn', set loser's action to 'destroyed'
+        if (choice === 'burn') {
+            updateData[loserField] = 'destroyed';
+        } else if (choice === 'spare') {
+            updateData[loserField] = 'spared';
+        }
+        
+        const updatedSession = await Session.findOneAndUpdate(
+            { sessionId: sessionId },
+            { $set: updateData },
+            { new: true }
+        );
+        
+        console.log(`Winner choice submitted successfully: ${choice}`);
+        return updatedSession;
+    } catch (error) {
+        console.error('Error submitting winner choice:', error);
+        throw error;
+    }
+};
+
+// Function to get the final battle result
+const getBattleResult = async (sessionId) => {
+    try {
+        const session = await Session.findOne({ sessionId: sessionId });
+        if (!session) {
+            throw new Error('Session not found');
+        }
+        
+        // Determine winner and their choice
+        let winner, winnerChoice, loser, loserStatus;
+        
+        if (session.user1Health <= 0) {
+            winner = session.user1;
+            winnerChoice = session.user1Action;
+            loser = session.user2;
+            loserStatus = session.user2Action;
+        } else if (session.user2Health <= 0) {
+            winner = session.user2;
+            winnerChoice = session.user2Action;
+            loser = session.user1;
+            loserStatus = session.user1Action;
+        } else {
+            return null; // Battle not completed
+        }
+        
+        return {
+            winner,
+            winnerChoice,
+            loser,
+            loserStatus,
+            sessionId: session.sessionId,
+            isActive: session.isActive
+        };
+    } catch (error) {
+        console.error('Error getting battle result:', error);
+        throw error;
+    }
+};
+
 // Expose the session management functions
 module.exports = {
     createSession,
@@ -955,5 +1074,8 @@ module.exports = {
     resetBattleActions,
     processBattleRound,
     startNewBattle,
-    endBattle
+    endBattle,
+    completeBattle,
+    submitWinnerChoice,
+    getBattleResult
 };

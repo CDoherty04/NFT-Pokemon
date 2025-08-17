@@ -423,6 +423,28 @@ function AppLogic({ currentWalletAddress, user }) {
                 setBattlePhase('completed');
                 setBattleLog(prev => [...prev, `🏆 ${winner} wins the battle!`]);
                 setMessage(`🏆 Battle Complete! ${winner} is victorious!`);
+                
+                // Mark the battle as completed in the database (set isActive to false)
+                try {
+                  const completeResponse = await fetch(`/api/sessions/${data.session.sessionId}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      completeBattle: true
+                    })
+                  });
+                  
+                  const completeData = await completeResponse.json();
+                  if (completeData.success) {
+                    console.log('Battle marked as completed in database');
+                    // Update the current battle with the completed status
+                    setCurrentBattle(completeData.session);
+                  } else {
+                    console.error('Failed to mark battle as completed:', completeData.error);
+                  }
+                } catch (error) {
+                  console.error('Error marking battle as completed:', error);
+                }
               }
             }
           }
@@ -576,11 +598,27 @@ function AppLogic({ currentWalletAddress, user }) {
             if (updatedSession.user1Action && updatedSession.user1Action !== currentBattle.user1Action) {
               console.log('Auto-refresh: Opponent 1 submitted action:', updatedSession.user1Action);
               setCurrentBattle(updatedSession);
+              
+              // Check if this is a winner choice (spare/burn)
+              if (['spare', 'burn'].includes(updatedSession.user1Action)) {
+                console.log('Winner choice detected:', updatedSession.user1Action);
+                if (currentScreen === 'battle') {
+                  setMessage(`🏆 Winner chose to ${updatedSession.user1Action.toUpperCase()} the opponent's Kartikmon!`);
+                }
+              }
             }
             
             if (updatedSession.user2Action && updatedSession.user2Action !== currentBattle.user2Action) {
               console.log('Auto-refresh: Opponent 2 submitted action:', updatedSession.user2Action);
               setCurrentBattle(updatedSession);
+              
+              // Check if this is a winner choice (spare/burn)
+              if (['spare', 'burn'].includes(updatedSession.user2Action)) {
+                console.log('Winner choice detected:', updatedSession.user2Action);
+                if (currentScreen === 'battle') {
+                  setMessage(`🏆 Winner chose to ${updatedSession.user2Action.toUpperCase()} the opponent's Kartikmon!`);
+                }
+              }
             }
 
             // Check for health changes
@@ -774,7 +812,7 @@ function AppLogic({ currentWalletAddress, user }) {
     <div className="relative">
       {/* Header with Back Button, Wallet Widget, and Notifications */}
       <div className="fixed top-4 left-4 z-50">
-        {currentScreen !== 'menu' || currentScreen !== 'battle' && (
+        {currentScreen !== 'menu' && currentScreen !== 'battle' && (
           <button
             onClick={() => navigateToScreen('menu')}
             disabled={loading}

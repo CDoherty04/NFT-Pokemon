@@ -150,6 +150,43 @@ export async function PATCH(request, { params }) {
         session: session,
         message: 'Battle force ended successfully'
       });
+    } else if (body.winnerChoice) {
+      // Handle winner's choice (spare or burn)
+      const { choice, userWalletAddress } = body;
+      
+      if (!choice || !userWalletAddress) {
+        return NextResponse.json(
+          { success: false, error: 'choice and userWalletAddress are required' },
+          { status: 400 }
+        );
+      }
+      
+      if (!['spare', 'burn'].includes(choice)) {
+        return NextResponse.json(
+          { success: false, error: 'choice must be either "spare" or "burn"' },
+          { status: 400 }
+        );
+      }
+      
+      // Submit the winner's choice
+      const { submitWinnerChoice } = await import('../../../../../scripts/database.js');
+      const session = await submitWinnerChoice(id, userWalletAddress, choice);
+      
+      return NextResponse.json({ 
+        success: true, 
+        session: session,
+        message: `Winner chose to ${choice} the opponent's Kartikmon`
+      });
+    } else if (body.completeBattle) {
+      // Mark battle as completed and set isActive to false
+      const { completeBattle } = await import('../../../../../scripts/database.js');
+      const session = await completeBattle(id);
+      
+      return NextResponse.json({ 
+        success: true, 
+        session: session,
+        message: 'Battle completed and session set to inactive'
+      });
     } else {
       return NextResponse.json(
         { success: false, error: 'Invalid request body' },

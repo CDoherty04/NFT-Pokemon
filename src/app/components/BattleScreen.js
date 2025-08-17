@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { RefreshCw, Zap, Shield, Hand, Footprints } from 'lucide-react';
+import { RefreshCw, Zap, Shield, Hand, Footprints, Flame, Heart, Skull } from 'lucide-react';
 
 // Define BATTLE_ACTIONS locally to avoid import issues
 const BATTLE_ACTIONS = {
@@ -52,6 +52,7 @@ export default function BattleScreen({
 }) {
   const [isCheckingActions, setIsCheckingActions] = useState(false);
   const [lastActionCheck, setLastActionCheck] = useState(null);
+  const [winnerChoice, setWinnerChoice] = useState(null);
 
   // Handle action checking with loading state
   const handleCheckActions = async () => {
@@ -141,6 +142,249 @@ export default function BattleScreen({
 
   const canSubmitAction = () => {
     return battlePhase === 'action-selection' && !userAction && !loading;
+  };
+
+  // Check if battle is completed and determine winner/loser
+  const isBattleCompleted = () => {
+    return battlePhase === 'completed' || 
+           (currentBattle && (currentBattle.user1Health <= 0 || currentBattle.user2Health <= 0));
+  };
+
+  const getWinner = () => {
+    if (!isBattleCompleted()) return null;
+    if (currentBattle.user1Health <= 0) return 'user2';
+    if (currentBattle.user2Health <= 0) return 'user1';
+    return null;
+  };
+
+  const isCurrentUserWinner = () => {
+    const winner = getWinner();
+    if (!winner) return false;
+    return getCurrentUserRole() === winner;
+  };
+
+  // Handle winner's choice
+  const handleWinnerChoice = async (choice) => {
+    setWinnerChoice(choice);
+    
+    try {
+      // Submit the winner's choice to the API
+      const response = await fetch(`/api/sessions/${currentBattle.sessionId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          winnerChoice: true,
+          choice: choice,
+          userWalletAddress: currentWalletAddress
+        })
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        console.log(`🎉 Winner choice submitted successfully: ${choice}`);
+        
+        if (choice === 'spare') {
+          // Log that both NFTs will be minted
+          console.log(`🎉 Winner chose to SPARE! Both NFTs will be minted:`);
+          console.log(`🏆 Winner NFT (${currentWalletAddress}): ${getCurrentUserImage()}`);
+          console.log(`💔 Loser NFT (${getOpponentStats()?.walletAddress || 'Unknown'}): ${getOpponentImage()}`);
+        } else if (choice === 'burn') {
+          // Log that only winner's NFT will be minted
+          console.log(`🔥 Winner chose to BURN! Only winner's NFT will be minted:`);
+          console.log(`🏆 Winner NFT (${currentWalletAddress}): ${getCurrentUserImage()}`);
+          console.log(`💀 Loser's Kartikmon was destroyed!`);
+        }
+      } else {
+        console.error('Failed to submit winner choice:', data.error);
+      }
+    } catch (error) {
+      console.error('Error submitting winner choice:', error);
+    }
+  };
+
+  // Check if opponent has made their choice
+  const getOpponentChoice = () => {
+    const role = getCurrentUserRole();
+    if (!role || !currentBattle) return null;
+    
+    const opponentRole = role === 'user1' ? 'user2' : 'user1';
+    const opponentAction = currentBattle[`${opponentRole}Action`];
+    
+    if (opponentAction === 'spare' || opponentAction === 'burn') {
+      return opponentAction;
+    }
+    return null;
+  };
+
+  // Check if current user is waiting for opponent's choice
+  const isWaitingForOpponentChoice = () => {
+    return isBattleCompleted() && !isCurrentUserWinner() && !getOpponentChoice();
+  };
+
+  // Check if opponent has made their choice and show result
+  const hasOpponentMadeChoice = () => {
+    return isBattleCompleted() && !isCurrentUserWinner() && getOpponentChoice();
+  };
+
+  // Render winner interface
+  const renderWinnerInterface = () => (
+    <div className="bg-gradient-to-br from-yellow-500/20 to-orange-500/20 backdrop-blur-sm rounded-2xl p-8 mb-8 border-2 border-yellow-400/50">
+      <div className="text-center">
+        <h3 className="text-4xl font-bold text-yellow-300 mb-4">🏆 VICTORY! 🏆</h3>
+        <p className="text-xl text-yellow-200 mb-8">
+          Congratulations! You've defeated your opponent! Now you must decide the fate of their Kartikmon...
+        </p>
+        
+        {!winnerChoice ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto">
+            <button
+              onClick={() => handleWinnerChoice('spare')}
+              className="p-8 rounded-2xl font-bold text-2xl transition-all duration-200 transform hover:scale-105 bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700 shadow-lg hover:shadow-green-500/50 border-2 border-green-400/50"
+            >
+              <div className="flex flex-col items-center gap-4">
+                <Heart className="w-12 h-12" />
+                <span>SPARE</span>
+                <p className="text-sm font-normal opacity-90">
+                  Show mercy and mint both NFTs
+                </p>
+              </div>
+            </button>
+            
+            <button
+              onClick={() => handleWinnerChoice('burn')}
+              className="p-8 rounded-2xl font-bold text-2xl transition-all duration-200 transform hover:scale-105 bg-gradient-to-r from-red-500 to-red-700 text-white hover:from-red-600 hover:to-red-800 shadow-lg hover:shadow-red-500/50 border-2 border-red-400/50"
+            >
+              <div className="flex flex-col items-center gap-4">
+                <Flame className="w-12 h-12" />
+                <span>BURN!</span>
+                <p className="text-sm font-normal opacity-90">
+                  Destroy their Kartikmon forever
+                </p>
+              </div>
+            </button>
+          </div>
+        ) : (
+          <div className="bg-white/10 rounded-2xl p-6 border border-white/20">
+            <h4 className="text-2xl font-bold text-white mb-4">
+              {winnerChoice === 'spare' ? '💝 Mercy Granted!' : '🔥 Destruction Complete!'}
+            </h4>
+            <p className="text-lg text-white/90 mb-4">
+              {winnerChoice === 'spare' 
+                ? 'Both Kartikmon will be minted as NFTs. Your opponent lives to fight another day!'
+                : 'Your opponent\'s Kartikmon has been destroyed. Only your NFT will be minted!'
+              }
+            </p>
+            <div className="text-sm text-white/70 font-mono">
+              {winnerChoice === 'spare' ? (
+                <div>
+                  <p>🏆 Winner NFT: {currentWalletAddress}</p>
+                  <p>💔 Loser NFT: {getOpponentStats()?.walletAddress || 'Unknown'}</p>
+                </div>
+              ) : (
+                <div>
+                  <p>🏆 Winner NFT: {currentWalletAddress}</p>
+                  <p>💀 Loser NFT: DESTROYED</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  // Render loser interface
+  const renderLoserInterface = () => {
+    const opponentChoice = getOpponentChoice();
+    
+    if (opponentChoice === 'spare') {
+      // Show spared result
+      return (
+        <div className="bg-gradient-to-br from-green-500/20 to-emerald-500/20 backdrop-blur-sm rounded-2xl p-8 mb-8 border-2 border-green-400/50">
+          <div className="text-center">
+            <h3 className="text-4xl font-bold text-green-300 mb-4">💝 MERCY GRANTED! 💝</h3>
+            <p className="text-xl text-green-200 mb-6">
+              The victor has shown you mercy! Your Kartikmon lives to fight another day.
+            </p>
+            
+            <div className="bg-green-900/30 rounded-2xl p-6 border border-green-500/30 mb-6">
+              <div className="flex items-center justify-center gap-4 mb-4">
+                <Heart className="w-12 h-12 text-green-400" />
+                <span className="text-2xl font-bold text-green-300">BOTH NFT'S WILL BE MINTED</span>
+                <Heart className="w-12 h-12 text-green-400" />
+              </div>
+              <p className="text-lg text-green-200">
+                Both Kartikmon will be minted as NFTs. You can start a new battle when ready!
+              </p>
+            </div>
+            
+            <div className="text-sm text-green-300/80">
+              <p>Your wallet: {currentWalletAddress}</p>
+              <p>Your Kartikmon: {getCurrentUserImage() ? 'Image Available' : 'No Image'}</p>
+              <p>Opponent's choice: SPARE</p>
+            </div>
+          </div>
+        </div>
+      );
+    } else if (opponentChoice === 'burn') {
+      // Show destroyed result
+      return (
+        <div className="bg-gradient-to-br from-red-500/20 to-black/20 backdrop-blur-sm rounded-2xl p-8 mb-8 border-2 border-red-400/50">
+          <div className="text-center">
+            <h3 className="text-4xl font-bold text-red-300 mb-4">💀 DESTROYED 💀</h3>
+            <p className="text-xl text-red-200 mb-6">
+              The victor has chosen to destroy your Kartikmon. It's gone forever.
+            </p>
+            
+            <div className="bg-red-900/30 rounded-2xl p-6 border border-red-500/30 mb-6">
+              <div className="flex items-center justify-center gap-4 mb-4">
+                <Flame className="w-12 h-12 text-red-400" />
+                <span className="text-2xl font-bold text-red-300">KARTIKMON DESTROYED</span>
+                <Flame className="w-12 h-12 text-red-400" />
+              </div>
+              <p className="text-lg text-red-200">
+                Only the victor's NFT will be minted. Your Kartikmon has been burned to ashes.
+              </p>
+            </div>
+            
+            <div className="text-sm text-red-300/80">
+              <p>Your wallet: {currentWalletAddress}</p>
+              <p>Your Kartikmon: DESTROYED</p>
+              <p>Opponent's choice: BURN</p>
+            </div>
+          </div>
+        </div>
+      );
+    } else {
+      // Show waiting for choice
+      return (
+        <div className="bg-gradient-to-br from-red-500/20 to-purple-500/20 backdrop-blur-sm rounded-2xl p-8 mb-8 border-2 border-red-400/50">
+          <div className="text-center">
+            <h3 className="text-4xl font-bold text-red-300 mb-4">💀 DEFEAT 💀</h3>
+            <p className="text-xl text-red-200 mb-6">
+              Your Kartikmon has fallen in battle...
+            </p>
+            
+            <div className="bg-red-900/30 rounded-2xl p-6 border border-red-500/30 mb-6">
+              <div className="flex items-center justify-center gap-4 mb-4">
+                <Skull className="w-12 h-12 text-red-400" />
+                <span className="text-2xl font-bold text-red-300">WAITING FOR MERCY</span>
+                <Skull className="w-12 h-12 text-red-400" />
+              </div>
+              <p className="text-lg text-red-200">
+                Your fate now rests in the hands of the victor. 
+                They must choose whether to spare your Kartikmon or burn it to ashes...
+              </p>
+            </div>
+            
+            <div className="text-sm text-red-300/80">
+              <p>Your wallet: {currentWalletAddress}</p>
+              <p>Your Kartikmon: {getCurrentUserImage() ? 'Image Available' : 'No Image'}</p>
+            </div>
+          </div>
+        </div>
+      );
+    }
   };
 
   return (
@@ -266,71 +510,76 @@ export default function BattleScreen({
           </div>
         </div>
 
-        {/* Battle Actions */}
-        <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-8 mb-8 border border-white/20">
-          <h3 className="text-2xl font-bold text-white mb-6 text-center">Battle Actions</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <button
-              onClick={() => handleAction(BATTLE_ACTIONS.PUNCH)}
-              disabled={!canSubmitAction()}
-              className={`p-6 rounded-2xl font-bold text-lg transition-all duration-200 transform hover:scale-105 ${canSubmitAction()
-                ? 'bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700 shadow-lg hover:shadow-red-500/50'
-                : 'bg-gray-500 text-gray-300 cursor-not-allowed'
-                }`}
-              title={getBattleActionDescriptions()[BATTLE_ACTIONS.PUNCH].description}
-            >
-              <div className="flex flex-col items-center gap-2">
-                <Hand className="w-8 h-8" />
-                <span>Punch</span>
-              </div>
-            </button>
+        {/* Winner/Loser Interface or Battle Actions */}
+        {isBattleCompleted() ? (
+          isCurrentUserWinner() ? renderWinnerInterface() : renderLoserInterface()
+        ) : (
+          /* Battle Actions */
+          <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-8 mb-8 border border-white/20">
+            <h3 className="text-2xl font-bold text-white mb-6 text-center">Battle Actions</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <button
+                onClick={() => handleAction(BATTLE_ACTIONS.PUNCH)}
+                disabled={!canSubmitAction()}
+                className={`p-6 rounded-2xl font-bold text-lg transition-all duration-200 transform hover:scale-105 ${canSubmitAction()
+                  ? 'bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700 shadow-lg hover:shadow-red-500/50'
+                  : 'bg-gray-500 text-gray-300 cursor-not-allowed'
+                  }`}
+                title={getBattleActionDescriptions()[BATTLE_ACTIONS.PUNCH].description}
+              >
+                <div className="flex flex-col items-center gap-2">
+                  <Hand className="w-8 h-8" />
+                  <span>Punch</span>
+                </div>
+              </button>
 
-            <button
-              onClick={() => handleAction(BATTLE_ACTIONS.KICK)}
-              disabled={!canSubmitAction()}
-              className={`p-6 rounded-2xl font-bold text-lg transition-all duration-200 transform hover:scale-105 ${canSubmitAction()
-                ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white hover:from-orange-600 hover:to-orange-700 shadow-lg hover:shadow-orange-500/50'
-                : 'bg-gray-500 text-gray-300 cursor-not-allowed'
-                }`}
-              title={getBattleActionDescriptions()[BATTLE_ACTIONS.KICK].description}
-            >
-              <div className="flex flex-col items-center gap-2">
-                <Footprints className="w-8 h-8" />
-                <span>Kick</span>
-              </div>
-            </button>
+              <button
+                onClick={() => handleAction(BATTLE_ACTIONS.KICK)}
+                disabled={!canSubmitAction()}
+                className={`p-6 rounded-2xl font-bold text-lg transition-all duration-200 transform hover:scale-105 ${canSubmitAction()
+                  ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white hover:from-orange-600 hover:to-orange-700 shadow-lg hover:shadow-orange-500/50'
+                  : 'bg-gray-500 text-gray-300 cursor-not-allowed'
+                  }`}
+                title={getBattleActionDescriptions()[BATTLE_ACTIONS.KICK].description}
+              >
+                <div className="flex flex-col items-center gap-2">
+                  <Footprints className="w-8 h-8" />
+                  <span>Kick</span>
+                </div>
+              </button>
 
-            <button
-              onClick={() => handleAction(BATTLE_ACTIONS.DODGE)}
-              disabled={!canSubmitAction()}
-              className={`p-6 rounded-2xl font-bold text-lg transition-all duration-200 transform hover:scale-105 ${canSubmitAction()
-                ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 shadow-lg hover:shadow-blue-500/50'
-                : 'bg-gray-500 text-gray-300 cursor-not-allowed'
-                }`}
-              title={getBattleActionDescriptions()[BATTLE_ACTIONS.DODGE].description}
-            >
-              <div className="flex flex-col items-center gap-2">
-                <Zap className="w-8 h-8" />
-                <span>Dodge</span>
-              </div>
-            </button>
+              <button
+                onClick={() => handleAction(BATTLE_ACTIONS.DODGE)}
+                disabled={!canSubmitAction()}
+                className={`p-6 rounded-2xl font-bold text-lg transition-all duration-200 transform hover:scale-105 ${canSubmitAction()
+                  ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 shadow-lg hover:shadow-blue-500/50'
+                  : 'bg-gray-500 text-gray-300 cursor-not-allowed'
+                  }`}
+                title={getBattleActionDescriptions()[BATTLE_ACTIONS.DODGE].description}
+              >
+                <div className="flex flex-col items-center gap-2">
+                  <Zap className="w-8 h-8" />
+                  <span>Dodge</span>
+                </div>
+              </button>
 
-            <button
-              onClick={() => handleAction(BATTLE_ACTIONS.BLOCK)}
-              disabled={!canSubmitAction()}
-              className={`p-6 rounded-2xl font-bold text-lg transition-all duration-200 transform hover:scale-105 ${canSubmitAction()
-                ? 'bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700 shadow-lg hover:shadow-purple-500/50'
-                : 'bg-gray-500 text-gray-300 cursor-not-allowed'
-                }`}
-              title={getBattleActionDescriptions()[BATTLE_ACTIONS.BLOCK].description}
-            >
-              <div className="flex flex-col items-center gap-2">
-                <Shield className="w-8 h-8" />
-                <span>Block</span>
-              </div>
-            </button>
+              <button
+                onClick={() => handleAction(BATTLE_ACTIONS.BLOCK)}
+                disabled={!canSubmitAction()}
+                className={`p-6 rounded-2xl font-bold text-lg transition-all duration-200 transform hover:scale-105 ${canSubmitAction()
+                  ? 'bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700 shadow-lg hover:shadow-purple-500/50'
+                  : 'bg-gray-500 text-gray-300 cursor-not-allowed'
+                  }`}
+                title={getBattleActionDescriptions()[BATTLE_ACTIONS.BLOCK].description}
+              >
+                <div className="flex flex-col items-center gap-2">
+                  <Shield className="w-8 h-8" />
+                  <span>Block</span>
+                </div>
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Battle Log */}
         <div className="bg-black/40 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
