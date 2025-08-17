@@ -15,7 +15,7 @@ export default function CreateGameScreen({
   const [showDrawing, setShowDrawing] = useState(false);
   const [avatarImage, setAvatarImage] = useState('');
   const [copied, setCopied] = useState(false);
-  const [attributes, setAttributes] = useState({ attack: 1, defense: 1, speed: 1 });
+  const [attributes, setAttributes] = useState({ attack: 0, defense: 0, speed: 0 });
 
   const copySessionId = () => {
     navigator.clipboard.writeText(sessionId);
@@ -95,114 +95,132 @@ export default function CreateGameScreen({
           <div className="flex flex-col lg:flex-row items-center gap-8">
             {/* Avatar Display */}
             <div className="flex-1 text-center">
-              {avatarImage ? (
-                <div className="relative">
-                  <img
-                    src={avatarImage}
-                    alt="Your Pokemon"
-                    className="w-48 h-48 rounded-2xl border-4 border-white/30 shadow-2xl"
-                  />
-                  <button
-                    onClick={() => setAvatarImage('')}
-                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-2 hover:bg-red-600 transition-colors"
-                  >
-                    ×
-                  </button>
-                </div>
-              ) : (
-                <div className="w-48 h-48 bg-white/20 rounded-2xl border-4 border-dashed border-white/30 flex items-center justify-center">
-                  <div className="text-center text-white/60">
-                    <Palette className="w-16 h-16 mx-auto mb-2" />
-                    <p>No Pokemon yet</p>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Avatar Creation Controls */}
-            <div className="flex-1 space-y-6">
+              {/* Draw Button Above Preview */}
               <button
                 onClick={() => setShowDrawing(true)}
-                className="w-full px-6 py-4 bg-gradient-to-r from-purple-500 to-pink-600 text-white font-bold text-lg rounded-xl hover:from-purple-600 hover:to-pink-700 transition-all duration-200 transform hover:scale-105"
+                className="w-full px-6 py-4 mb-6 bg-gradient-to-r from-purple-500 to-pink-600 text-white font-bold text-lg rounded-xl hover:from-purple-600 hover:to-pink-700 transition-all duration-200 transform hover:scale-105"
               >
                 <div className="flex items-center justify-center gap-3">
                   <Palette className="w-6 h-6" />
                   <span>{avatarImage ? 'Redraw Pokemon' : 'Draw Your Pokemon'}</span>
                 </div>
               </button>
+              
+              <div className="relative w-full">
+                {avatarImage ? (
+                  <img
+                    src={avatarImage}
+                    alt="Your Pokemon"
+                    className="w-full aspect-square rounded-2xl border-4 border-white/30 shadow-2xl"
+                  />
+                ) : (
+                  <div className="w-full aspect-square bg-white/20 rounded-2xl border-4 border-dashed border-white/30 flex items-center justify-center">
+                    <div className="text-center text-white/60">
+                      <Palette className="w-20 h-20 mx-auto mb-2" />
+                      <p className="text-lg">No Pokemon yet</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Avatar Creation Controls */}
+            <div className="flex-1 space-y-6">
 
               {/* Attributes Section */}
               <div className="bg-white/10 rounded-xl p-6">
-                <h3 className="text-lg font-semibold text-white mb-4 text-center">Attributes (3 total points to allocate)</h3>
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold text-white">Attributes</h3>
+                  <button
+                    onClick={() => setAttributes({ attack: 0, defense: 0, speed: 0 })}
+                    className="px-3 py-1 bg-red-500/20 text-red-300 text-sm rounded-lg hover:bg-red-500/30 transition-colors border border-red-400/30"
+                  >
+                    Clear All
+                  </button>
+                </div>
+                <div className="text-center text-blue-200 mb-6">
+                  <span className="text-2xl font-bold">{3 - attributes.attack - attributes.defense - attributes.speed}</span> points remaining
+                </div>
                 
-                <div className="space-y-4">
-                  <div>
-                    <div className="flex justify-between text-white mb-2">
-                      <span>⚔️ Attack: {attributes.attack}</span>
-                      <span className="text-blue-200">{3 - attributes.defense - attributes.speed} remaining</span>
+                <div className="space-y-6">
+                  {/* Attack Stat */}
+                  <div className="bg-gradient-to-r from-red-500/20 to-red-600/20 rounded-xl p-4 border border-red-400/30">
+                    <div className="flex justify-between text-white mb-3">
+                      <span className="text-lg font-semibold">⚔️ Attack: {attributes.attack}</span>
                     </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="3"
-                      value={attributes.attack}
-                      onChange={(e) => {
-                        const newAttack = parseInt(e.target.value);
-                        const currentTotal = attributes.defense + attributes.speed;
-                        if (newAttack + currentTotal <= 3) {
-                          setAttributes(prev => ({ ...prev, attack: newAttack }));
-                        }
-                      }}
-                      className="w-full h-3 bg-white/20 rounded-lg appearance-none cursor-pointer slider"
-                    />
+                    <div className="flex justify-center gap-3">
+                      {[1, 2, 3].map((level) => (
+                        <button
+                          key={level}
+                          onClick={() => {
+                            const currentTotal = attributes.defense + attributes.speed;
+                            if (level + currentTotal <= 3) {
+                              setAttributes(prev => ({ ...prev, attack: level }));
+                            }
+                          }}
+                          className={`w-8 h-8 rounded-full transition-all duration-200 border-2 ${
+                            level <= attributes.attack
+                              ? level === 1 ? 'bg-red-400 border-red-500' : level === 2 ? 'bg-red-500 border-red-600' : 'bg-red-600 border-red-700'
+                              : 'bg-white/20 border-white/40 hover:bg-white/30'
+                          }`}
+                        />
+                      ))}
+                    </div>
                   </div>
 
-                  <div>
-                    <div className="flex justify-between text-white mb-2">
-                      <span>🛡️ Defense: {attributes.defense}</span>
+                  {/* Defense Stat */}
+                  <div className="bg-gradient-to-r from-blue-500/20 to-blue-600/20 rounded-xl p-4 border border-blue-400/30">
+                    <div className="flex justify-between text-white mb-3">
+                      <span className="text-lg font-semibold">🛡️ Defense: {attributes.defense}</span>
                     </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="3"
-                      value={attributes.defense}
-                      onChange={(e) => {
-                        const newDefense = parseInt(e.target.value);
-                        const currentTotal = attributes.attack + attributes.speed;
-                        if (newDefense + currentTotal <= 3) {
-                          setAttributes(prev => ({ ...prev, defense: newDefense }));
-                        }
-                      }}
-                      className="w-full h-3 bg-white/20 rounded-lg appearance-none cursor-pointer slider"
-                    />
+                    <div className="flex justify-center gap-3">
+                      {[1, 2, 3].map((level) => (
+                        <button
+                          key={level}
+                          onClick={() => {
+                            const currentTotal = attributes.attack + attributes.speed;
+                            if (level + currentTotal <= 3) {
+                              setAttributes(prev => ({ ...prev, defense: level }));
+                            }
+                          }}
+                          className={`w-8 h-8 rounded-full transition-all duration-200 border-2 ${
+                            level <= attributes.defense
+                              ? level === 1 ? 'bg-blue-400 border-blue-500' : level === 2 ? 'bg-blue-500 border-blue-600' : 'bg-blue-600 border-blue-700'
+                              : 'bg-white/20 border-white/40 hover:bg-white/30'
+                          }`}
+                        />
+                      ))}
+                    </div>
                   </div>
 
-                  <div>
-                    <div className="flex justify-between text-white mb-2">
-                      <span>⚡ Speed: {attributes.speed}</span>
+                  {/* Speed Stat */}
+                  <div className="bg-gradient-to-r from-green-500/20 to-green-600/20 rounded-xl p-4 border border-green-400/30">
+                    <div className="flex justify-between text-white mb-3">
+                      <span className="text-lg font-semibold">⚡ Speed: {attributes.speed}</span>
                     </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="3"
-                      value={attributes.speed}
-                      onChange={(e) => {
-                        const newSpeed = parseInt(e.target.value);
-                        const currentTotal = attributes.attack + attributes.defense;
-                        if (newSpeed + currentTotal <= 3) {
-                          setAttributes(prev => ({ ...prev, speed: newSpeed }));
-                        }
-                      }}
-                      className="w-full h-3 bg-white/20 rounded-lg appearance-none cursor-pointer slider"
-                    />
+                    <div className="flex justify-center gap-3">
+                      {[1, 2, 3].map((level) => (
+                        <button
+                          key={level}
+                          onClick={() => {
+                            const currentTotal = attributes.attack + attributes.defense;
+                            if (level + currentTotal <= 3) {
+                              setAttributes(prev => ({ ...prev, speed: level }));
+                            }
+                          }}
+                          className={`w-8 h-8 rounded-full transition-all duration-200 border-2 ${
+                            level <= attributes.speed
+                              ? level === 1 ? 'bg-green-400 border-green-500' : level === 2 ? 'bg-green-500 border-green-600' : 'bg-green-600 border-green-700'
+                              : 'bg-white/20 border-white/40 hover:bg-white/30'
+                          }`}
+                        />
+                      ))}
+                    </div>
                   </div>
                 </div>
 
                 {/* Progress Bar */}
-                <div className="mt-4">
-                  <div className="flex justify-between text-sm text-white/80 mb-2">
-                    <span>Points allocated: {attributes.attack + attributes.defense + attributes.speed}/3</span>
-                  </div>
+                <div className="mt-6">
                   <div className="w-full bg-white/20 rounded-full h-3">
                     <div
                       className="bg-gradient-to-r from-green-400 to-blue-500 h-3 rounded-full transition-all duration-300"
