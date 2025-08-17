@@ -7,35 +7,35 @@ import { RefreshCw, Zap, Shield, Hand, Footprints, Flame, Heart, Skull } from 'l
 const BATTLE_ACTIONS = {
   PUNCH: 'punch',
   KICK: 'kick',
-  DODGE: 'dodge',
-  BLOCK: 'block'
+  BLOCK: 'block',
+  CHARGE: 'charge'
 };
 
 // Define action descriptions locally
 const getBattleActionDescriptions = () => ({
   [BATTLE_ACTIONS.PUNCH]: {
     name: 'Punch',
-    description: 'Attack based on attack stat. Speed bonus vs dodges!',
+    description: 'Regular attack damage based on attack stat. 10% chance to critical hit!',
     icon: '👊',
     color: 'bg-red-500 hover:bg-red-600'
   },
   [BATTLE_ACTIONS.KICK]: {
     name: 'Kick',
-    description: 'Attack based on attack stat. Speed bonus vs blocks!',
+    description: 'Double damage but 50% chance to miss. Speed increases hit chance!',
     icon: '🦵',
     color: 'bg-orange-500 hover:bg-orange-600'
   },
-  [BATTLE_ACTIONS.DODGE]: {
-    name: 'Dodge',
-    description: 'Avoid attacks. Speed 3+ gains health from dodging!',
-    icon: '💨',
-    color: 'bg-blue-500 hover:bg-blue-600'
-  },
   [BATTLE_ACTIONS.BLOCK]: {
     name: 'Block',
-    description: 'Reduce damage. Speed 3+ gains health from blocking!',
+    description: 'Protects from half of incoming damage. Defense increases protection!',
     icon: '🛡️',
     color: 'bg-purple-500 hover:bg-purple-600'
+  },
+  [BATTLE_ACTIONS.CHARGE]: {
+    name: 'Charge',
+    description: 'Next attack does double damage. Speed increases charge success!',
+    icon: '⚡',
+    color: 'bg-yellow-500 hover:bg-yellow-600'
   }
 });
 
@@ -70,7 +70,7 @@ export default function BattleScreen({
   };
 
   // Helper functions for health calculations
-  const getMaxHealth = (defense) => 100 + (defense * 20);
+  const getMaxHealth = (defense) => 150 + (defense * 30);
   const getHealthPercentage = (currentHealth, maxHealth) => Math.max(0, Math.min(100, (currentHealth / maxHealth) * 100));
   const getHealthColor = (percentage) => {
     if (percentage > 60) return 'from-green-400 to-green-600';
@@ -410,6 +410,24 @@ export default function BattleScreen({
           </p>
         </div>
 
+        {/* Battle Mechanics Summary */}
+        <div className="bg-gradient-to-br from-blue-900/30 to-purple-900/30 backdrop-blur-sm rounded-2xl p-6 mb-6 border border-blue-400/30">
+          <h3 className="text-xl font-bold text-blue-300 mb-4 text-center">⚔️ New Battle Mechanics ⚔️</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-200">
+            <div>
+              <p><strong>👊 Punch:</strong> Regular damage, 10% critical hit chance</p>
+              <p><strong>🦵 Kick:</strong> Double damage, 50% miss chance (Speed reduces miss)</p>
+              <p><strong>🛡️ Block:</strong> Reduces damage by 50%+ (Defense increases protection)</p>
+              <p><strong>⚡ Charge:</strong> Next attack does double damage (Speed increases success)</p>
+            </div>
+            <div>
+              <p><strong>⚔️ Attack:</strong> Increases base damage and critical hit damage</p>
+              <p><strong>🛡️ Defense:</strong> Increases max health and block effectiveness</p>
+              <p><strong>⚡ Speed:</strong> Increases critical hits, kick accuracy, and charge success</p>
+            </div>
+          </div>
+        </div>
+
         {/* Battle Arena */}
         <div className="bg-gradient-to-br from-red-100/20 to-orange-100/20 backdrop-blur-sm rounded-3xl p-8 mb-8 border border-white/20">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
@@ -449,17 +467,26 @@ export default function BattleScreen({
 
                 {/* Stats */}
                 <div className="space-y-3 text-white">
-                  <div className="flex justify-between">
+                  <div className="flex justify-between group relative">
                     <span>⚔️ Attack:</span>
                     <span className="font-bold">{getCurrentUserStats()?.attack || 0}</span>
+                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-black/90 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                      Increases base damage and critical hit damage
+                    </div>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between group relative">
                     <span>🛡️ Defense:</span>
                     <span className="font-bold">{getCurrentUserStats()?.defense || 0}</span>
+                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-black/90 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                      Increases max health and block effectiveness
+                    </div>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between group relative">
                     <span>⚡ Speed:</span>
                     <span className="font-bold">{getCurrentUserStats()?.speed || 0}</span>
+                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-black/90 text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                      Increases critical hit chance, kick accuracy, and charge success
+                    </div>
                   </div>
                 </div>
               </div>
@@ -501,17 +528,26 @@ export default function BattleScreen({
 
                 {/* Stats */}
                 <div className="space-y-3 text-white">
-                  <div className="flex justify-between">
+                  <div className="flex justify-between group relative">
                     <span>⚔️ Attack:</span>
                     <span className="font-bold">{getOpponentStats()?.attack || 0}</span>
+                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-black/90 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                      Increases base damage and critical hit damage
+                    </div>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between group relative">
                     <span>🛡️ Defense:</span>
                     <span className="font-bold">{getOpponentStats()?.defense || 0}</span>
+                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-black/90 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                      Increases max health and block effectiveness
+                    </div>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between group relative">
                     <span>⚡ Speed:</span>
                     <span className="font-bold">{getOpponentStats()?.speed || 0}</span>
+                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-2 bg-black/90 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                      Increases critical hit chance, kick accuracy, and charge success
+                    </div>
                   </div>
                 </div>
               </div>
@@ -558,21 +594,6 @@ export default function BattleScreen({
               </button>
 
               <button
-                onClick={() => handleAction(BATTLE_ACTIONS.DODGE)}
-                disabled={!canSubmitAction()}
-                className={`p-6 rounded-2xl font-bold text-lg transition-all duration-200 transform hover:scale-105 ${canSubmitAction()
-                  ? `bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 shadow-lg hover:shadow-blue-500/50 ${selectedAction === BATTLE_ACTIONS.DODGE ? 'border-2 border-white' : ''}`
-                  : 'bg-gradient-to-r from-blue-500 to-blue-600 text-white opacity-50 cursor-not-allowed'
-                  }`}
-                title={getBattleActionDescriptions()[BATTLE_ACTIONS.DODGE].description}
-              >
-                <div className="flex flex-col items-center gap-2">
-                  <Zap className="w-8 h-8" />
-                  <span>Dodge</span>
-                </div>
-              </button>
-
-              <button
                 onClick={() => handleAction(BATTLE_ACTIONS.BLOCK)}
                 disabled={!canSubmitAction()}
                 className={`p-6 rounded-2xl font-bold text-lg transition-all duration-200 transform hover:scale-105 ${canSubmitAction()
@@ -584,6 +605,21 @@ export default function BattleScreen({
                 <div className="flex flex-col items-center gap-2">
                   <Shield className="w-8 h-8" />
                   <span>Block</span>
+                </div>
+              </button>
+
+              <button
+                onClick={() => handleAction(BATTLE_ACTIONS.CHARGE)}
+                disabled={!canSubmitAction()}
+                className={`p-6 rounded-2xl font-bold text-lg transition-all duration-200 transform hover:scale-105 ${canSubmitAction()
+                  ? `bg-gradient-to-r from-yellow-500 to-yellow-600 text-white hover:from-yellow-600 hover:to-yellow-700 shadow-lg hover:shadow-yellow-500/50 ${selectedAction === BATTLE_ACTIONS.CHARGE ? 'border-2 border-white' : ''}`
+                  : 'bg-gradient-to-r from-yellow-500 to-yellow-600 text-white opacity-50 cursor-not-allowed'
+                  }`}
+                title={getBattleActionDescriptions()[BATTLE_ACTIONS.CHARGE].description}
+              >
+                <div className="flex flex-col items-center gap-2">
+                  <Zap className="w-8 h-8" />
+                  <span>Charge</span>
                 </div>
               </button>
             </div>

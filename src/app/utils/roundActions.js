@@ -8,7 +8,7 @@ const API_BASE = '/api/sessions';
  * Submit a player's action for the current round
  * @param {string} sessionId - The session ID
  * @param {string} playerType - Either 'player1' or 'player2'
- * @param {string} action - One of: 'punch', 'kick', 'dodge', 'block'
+ * @param {string} action - One of: 'punch', 'kick', 'block', 'charge'
  * @returns {Promise<Object>} Response with action status
  */
 export async function submitPlayerAction(sessionId, playerType, action) {
@@ -141,23 +141,23 @@ export function getActionDescriptions() {
     return {
         punch: {
             name: 'Punch',
-            description: 'Quick attack with moderate damage',
+            description: 'Regular attack damage based on attack stat. 10% chance to critical hit!',
             icon: '👊'
         },
         kick: {
             name: 'Kick',
-            description: 'Powerful attack with high damage',
+            description: 'Double damage but 50% chance to miss. Speed increases hit chance!',
             icon: '🦵'
-        },
-        dodge: {
-            name: 'Dodge',
-            description: 'Avoid incoming attacks',
-            icon: '💨'
         },
         block: {
             name: 'Block',
-            description: 'Reduce damage from attacks',
+            description: 'Protects from half of incoming damage. Defense increases protection!',
             icon: '🛡️'
+        },
+        charge: {
+            name: 'Charge',
+            description: 'Next attack does double damage. Speed increases charge success!',
+            icon: '⚡'
         }
     };
 }
@@ -168,6 +168,6 @@ export function getActionDescriptions() {
  * @returns {boolean} True if action is valid
  */
 export function isValidAction(action) {
-    const validActions = ['punch', 'kick', 'dodge', 'block'];
+    const validActions = ['punch', 'kick', 'block', 'charge'];
     return validActions.includes(action);
 }

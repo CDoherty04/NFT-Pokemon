@@ -2,16 +2,12 @@
  * Battle logic for Kartikmon combat using session status for action tracking
  * 
  * NEW BATTLE MECHANICS:
- * - Punches and kicks now do the same base damage (based on attack stat)
- * - Health is based on defense stat
- * - Speed 1: Punches do more damage to dodges, kicks do more damage to blocks
- * - Speed 2: Enhanced damage bonuses (2x multiplier)
- * - Speed 3: Both bonuses apply + gain health when blocking punches or dodging kicks
- * 
- * Speed Bonuses:
- * - Speed 1+: Punches get +30% damage vs dodges, kicks get +40% damage vs blocks
- * - Speed 2+: Damage bonuses are doubled (+60% for punches vs dodges, +80% for kicks vs blocks)
- * - Speed 3+: All bonuses apply + gain health equal to 50% of defense stat when blocking/dodging
+ * - Punch: Regular damage based on attack stat, 10% chance to critical hit
+ * - Kick: Double damage but 50% chance to miss, speed increases hit chance
+ * - Block: Protects from half of incoming damage, defense increases protection
+ * - Charge: Next attack does double damage, speed increases charge success
+ * - Critical hits: 10% chance for double damage, attack stat increases critical damage
+ * - Stats: Attack increases base damage and critical damage, Defense increases health and block mitigation, Speed increases chance-based effects
  */
 
 // Remove the import that's causing issues
@@ -23,8 +19,8 @@
 export const BATTLE_ACTIONS = {
   PUNCH: 'punch',
   KICK: 'kick',
-  DODGE: 'dodge',
-  BLOCK: 'block'
+  BLOCK: 'block',
+  CHARGE: 'charge'
 };
 
 /**
@@ -37,33 +33,15 @@ export const BATTLE_ACTIONS = {
 export async function submitBattleAction(sessionId, playerType, action) {
   try {
     console.log(`Submitting battle action: ${playerType} chose ${action}`);
-    // const result = await submitPlayerAction(sessionId, playerType, action); // This line was removed
-    // console.log('Battle action result:', result); // This line was removed
-    
-    // if (result && result.success && result.currentStatus) { // This block was removed
-    //   console.log('Valid result structure:', result); // This line was removed
-    //   return result; // This line was removed
-    // } else { // This block was removed
-    //   console.warn('Invalid result structure:', result); // This line was removed
-    //   return { // This line was removed
-    //     success: result?.success || false, // This line was removed
-    //     currentStatus: result?.currentStatus || { // This line was removed
-    //       player1Action: null, // This line was removed
-    //       player2Action: null, // This line was removed
-    //       status: 'active' // This line was removed
-    //     }, // This line was removed
-    //     error: result?.error || 'Invalid response structure' // This line was removed
-    //   }; // This line was removed
-    // } // This block was removed
-    return { // This line was added
-      success: true, // This line was added
-      currentStatus: { // This line was added
-        player1Action: null, // This line was added
-        player2Action: null, // This line was added
-        status: 'active' // This line was added
-      }, // This line was added
-      error: null // This line was added
-    }; // This line was added
+    return {
+      success: true,
+      currentStatus: {
+        player1Action: null,
+        player2Action: null,
+        status: 'active'
+      },
+      error: null
+    };
   } catch (error) {
     console.error('Error submitting battle action:', error);
     throw error;
@@ -77,9 +55,7 @@ export async function submitBattleAction(sessionId, playerType, action) {
  */
 export async function checkBothPlayersMoved(sessionId) {
   try {
-    // const actionStatus = await getCurrentActionStatus(sessionId); // This line was removed
-    // console.log('Checking if both players moved:', actionStatus); // This line was removed
-    return false; // This line was added
+    return false;
   } catch (error) {
     console.error('Error checking if both players moved:', error);
     return false;
@@ -93,7 +69,6 @@ export async function checkBothPlayersMoved(sessionId) {
  */
 export async function getBattleActionStatus(sessionId) {
   try {
-    // const actionStatus = await getCurrentActionStatus(sessionId); // This line was removed
     return {
       player1Action: 'Waiting...',
       player2Action: 'Waiting...',
@@ -120,8 +95,7 @@ export async function getBattleActionStatus(sessionId) {
  */
 export async function resetBattleStatus(sessionId) {
   try {
-    // const result = await resetSessionStatus(sessionId); // This line was removed
-    return true; // This line was added
+    return true;
   } catch (error) {
     console.error('Error resetting battle status:', error);
     return false;
@@ -152,229 +126,360 @@ export function resolveBattleRound(player1, player2, player1Action, player2Actio
   const p1Stats = player1.attributes || { attack: 1, defense: 1, speed: 1 };
   const p2Stats = player2.attributes || { attack: 1, defense: 1, speed: 1 };
 
-  // Helper function to calculate speed bonuses
-  const getSpeedBonus = (speed) => {
-    if (speed >= 3) return 3; // Both bonuses + health gain
-    if (speed >= 2) return 2; // Enhanced damage
-    if (speed >= 1) return 1; // Basic bonus
-    return 0; // No bonus
+  // Helper function to calculate base damage
+  const getBaseDamage = (attackStat) => Math.max(1, attackStat * 8);
+
+  // Helper function to calculate critical hit chance and damage
+  const getCriticalHit = (attackStat, speed) => {
+    const baseCritChance = 0.10; // 10% base chance
+    const speedBonus = Math.min(0.05, speed * 0.01); // Speed increases crit chance by 1% per point, max 5%
+    const totalCritChance = baseCritChance + speedBonus;
+    
+    if (Math.random() < totalCritChance) {
+      const baseCritDamage = 2.0; // Base critical hit multiplier
+      const attackBonus = Math.min(0.5, attackStat * 0.1); // Attack increases crit damage by 10% per point, max 50%
+      return baseCritDamage + attackBonus;
+    }
+    return 1.0; // No critical hit
   };
 
-  // Helper function to calculate base damage (same for punches and kicks)
-  const getBaseDamage = (attackStat) => Math.max(1, attackStat * 6);
+  // Helper function to calculate kick hit chance
+  const getKickHitChance = (speed) => {
+    const baseMissChance = 0.50; // 50% base miss chance
+    const speedBonus = Math.min(0.30, speed * 0.05); // Speed reduces miss chance by 5% per point, max 30%
+    return 1.0 - (baseMissChance - speedBonus);
+  };
 
-  // Helper function to calculate health gain from defense
-  const getHealthGain = (defenseStat) => Math.max(1, Math.floor(defenseStat * 0.5));
+  // Helper function to calculate block effectiveness
+  const getBlockEffectiveness = (defense) => {
+    const baseBlock = 0.50; // Base 50% damage reduction
+    const defenseBonus = Math.min(0.25, defense * 0.05); // Defense increases block effectiveness by 5% per point, max 25%
+    return baseBlock + defenseBonus;
+  };
+
+  // Helper function to calculate charge success chance
+  const getChargeSuccessChance = (speed) => {
+    const baseSuccess = 0.80; // 80% base success chance
+    const speedBonus = Math.min(0.15, speed * 0.03); // Speed increases success by 3% per point, max 15%
+    return Math.min(0.95, baseSuccess + speedBonus); // Cap at 95%
+  };
+
+  // Helper function to calculate health from defense
+  const getMaxHealth = (defense) => 100 + (defense * 25);
 
   // Resolve actions based on combinations
   if (player1Action === BATTLE_ACTIONS.PUNCH && player2Action === BATTLE_ACTIONS.BLOCK) {
-    // Punch vs Block - base damage reduced by defense
+    // Punch vs Block
     const baseDamage = getBaseDamage(p1Stats.attack);
-    const damage = Math.max(1, Math.floor(baseDamage * 0.5));
-    result.player2Damage = damage;
+    const criticalMultiplier = getCriticalHit(p1Stats.attack, p1Stats.speed);
+    const totalDamage = Math.floor(baseDamage * criticalMultiplier);
     
-    // Speed bonus: kicks do more damage to blocks
-    const p1SpeedBonus = getSpeedBonus(p1Stats.speed);
-    if (p1SpeedBonus >= 1) {
-      const bonusDamage = Math.floor(baseDamage * 0.3 * p1SpeedBonus);
-      result.player2Damage += bonusDamage;
-      result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... punches with speed bonus! Extra damage: +${bonusDamage}`);
+    const blockEffectiveness = getBlockEffectiveness(p2Stats.defense);
+    const finalDamage = Math.max(1, Math.floor(totalDamage * (1 - blockEffectiveness)));
+    
+    result.player2Damage = finalDamage;
+    
+    if (criticalMultiplier > 1.0) {
+      result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... lands a CRITICAL PUNCH! Damage: ${totalDamage}`);
     }
     
-    // Speed 3: Player 2 gains health when blocking punches
-    if (p2Stats.speed >= 3) {
-      const healthGain = getHealthGain(p2Stats.defense);
-      result.player2Effects.push({ type: 'health_gain', value: healthGain });
-      result.logMessages.push(`${player2.walletAddress?.substring(0, 10)}... gains ${healthGain} health from blocking with speed 3!`);
-    }
-    
-    result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... punches, but ${player2.walletAddress?.substring(0, 10)}... blocks! Total damage: ${result.player2Damage}`);
+    result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... punches for ${totalDamage} damage, but ${player2.walletAddress?.substring(0, 10)}... blocks! Final damage: ${finalDamage}`);
   } else if (player1Action === BATTLE_ACTIONS.KICK && player2Action === BATTLE_ACTIONS.BLOCK) {
-    // Kick vs Block - base damage reduced by defense
+    // Kick vs Block
+    const hitChance = getKickHitChance(p1Stats.speed);
+    
+    if (Math.random() < hitChance) {
+      const baseDamage = getBaseDamage(p1Stats.attack) * 2; // Double damage
+      const criticalMultiplier = getCriticalHit(p1Stats.attack, p1Stats.speed);
+      const totalDamage = Math.floor(baseDamage * criticalMultiplier);
+      
+      const blockEffectiveness = getBlockEffectiveness(p2Stats.defense);
+      const finalDamage = Math.max(1, Math.floor(totalDamage * (1 - blockEffectiveness)));
+      
+      result.player2Damage = finalDamage;
+      
+      if (criticalMultiplier > 1.0) {
+        result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... lands a CRITICAL KICK! Damage: ${totalDamage}`);
+      }
+      
+      result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... lands a powerful kick for ${totalDamage} damage, but ${player2.walletAddress?.substring(0, 10)}... blocks! Final damage: ${finalDamage}`);
+    } else {
+      result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... tries to kick but misses!`);
+    }
+  } else if (player1Action === BATTLE_ACTIONS.PUNCH && player2Action === BATTLE_ACTIONS.CHARGE) {
+    // Punch vs Charge
     const baseDamage = getBaseDamage(p1Stats.attack);
-    const damage = Math.max(1, Math.floor(baseDamage * 0.5));
-    result.player2Damage = damage;
+    const criticalMultiplier = getCriticalHit(p1Stats.attack, p1Stats.speed);
+    const totalDamage = Math.floor(baseDamage * criticalMultiplier);
     
-    // Speed bonus: kicks do more damage to blocks
-    const p1SpeedBonus = getSpeedBonus(p1Stats.speed);
-    if (p1SpeedBonus >= 1) {
-      const bonusDamage = Math.floor(baseDamage * 0.4 * p1SpeedBonus);
-      result.player2Damage += bonusDamage;
-      result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... kicks with speed bonus vs block! Extra damage: +${bonusDamage}`);
+    result.player2Damage = totalDamage;
+    
+    if (criticalMultiplier > 1.0) {
+      result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... lands a CRITICAL PUNCH! Damage: ${totalDamage}`);
     }
     
-    // Speed 3: Player 2 gains health when blocking kicks
-    if (p2Stats.speed >= 3) {
-      const healthGain = getHealthGain(p2Stats.defense);
-      result.player2Effects.push({ type: 'health_gain', value: healthGain });
-      result.logMessages.push(`${player2.walletAddress?.substring(0, 10)}... gains ${healthGain} health from blocking with speed 3!`);
-    }
+    result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... punches for ${totalDamage} damage while ${player2.walletAddress?.substring(0, 10)}... charges up!`);
+  } else if (player1Action === BATTLE_ACTIONS.KICK && player2Action === BATTLE_ACTIONS.CHARGE) {
+    // Kick vs Charge
+    const hitChance = getKickHitChance(p1Stats.speed);
     
-    result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... kicks hard, ${player2.walletAddress?.substring(0, 10)}... blocks! Total damage: ${result.player2Damage}`);
-  } else if (player1Action === BATTLE_ACTIONS.PUNCH && player2Action === BATTLE_ACTIONS.DODGE) {
-    // Punch vs Dodge - base damage
-    const baseDamage = getBaseDamage(p1Stats.attack);
-    
-    // Speed bonus: punches do more damage to dodges
-    const p1SpeedBonus = getSpeedBonus(p1Stats.speed);
-    if (p1SpeedBonus >= 1) {
-      const bonusDamage = Math.floor(baseDamage * 0.3 * p1SpeedBonus);
-      result.player2Damage = bonusDamage;
-      result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... punches with speed bonus vs dodge! Damage: ${bonusDamage}`);
+    if (Math.random() < hitChance) {
+      const baseDamage = getBaseDamage(p1Stats.attack) * 2; // Double damage
+      const criticalMultiplier = getCriticalHit(p1Stats.attack, p1Stats.speed);
+      const totalDamage = Math.floor(baseDamage * criticalMultiplier);
+      
+      result.player2Damage = totalDamage;
+      
+      if (criticalMultiplier > 1.0) {
+        result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... lands a CRITICAL KICK! Damage: ${totalDamage}`);
+      }
+      
+      result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... lands a powerful kick for ${totalDamage} damage while ${player2.walletAddress?.substring(0, 10)}... charges up!`);
     } else {
-      result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... punches, but ${player2.walletAddress?.substring(0, 10)}... dodges! Miss!`);
-    }
-    
-    // Speed 3: Player 2 gains health when dodging punches
-    if (p2Stats.speed >= 3) {
-      const healthGain = getHealthGain(p2Stats.defense);
-      result.player2Effects.push({ type: 'health_gain', value: healthGain });
-      result.logMessages.push(`${player2.walletAddress?.substring(0, 10)}... gains ${healthGain} health from dodging with speed 3!`);
-    }
-  } else if (player1Action === BATTLE_ACTIONS.KICK && player2Action === BATTLE_ACTIONS.DODGE) {
-    // Kick vs Dodge - base damage
-    const baseDamage = getBaseDamage(p1Stats.attack);
-    
-    // Speed bonus: kicks do more damage to dodges
-    const p1SpeedBonus = getSpeedBonus(p1Stats.speed);
-    if (p1SpeedBonus >= 1) {
-      const bonusDamage = Math.floor(baseDamage * 0.3 * p1SpeedBonus);
-      result.player2Damage = bonusDamage;
-      result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... kicks with speed bonus vs dodge! Damage: ${bonusDamage}`);
-    } else {
-      result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... kicks, but ${player2.walletAddress?.substring(0, 10)}... dodges! Miss!`);
-    }
-    
-    // Speed 3: Player 2 gains health when dodging kicks
-    if (p2Stats.speed >= 3) {
-      const healthGain = getHealthGain(p2Stats.defense);
-      result.player2Effects.push({ type: 'health_gain', value: healthGain });
-      result.logMessages.push(`${player2.walletAddress?.substring(0, 10)}... gains ${healthGain} health from dodging with speed 3!`);
-    }
-  } else if (player1Action === BATTLE_ACTIONS.DODGE && player2Action === BATTLE_ACTIONS.PUNCH) {
-    // Dodge vs Punch - base damage
-    const baseDamage = getBaseDamage(p2Stats.attack);
-    
-    // Speed bonus: punches do more damage to dodges
-    const p2SpeedBonus = getSpeedBonus(p2Stats.speed);
-    if (p2SpeedBonus >= 1) {
-      const bonusDamage = Math.floor(baseDamage * 0.3 * p2SpeedBonus);
-      result.player1Damage = bonusDamage;
-      result.logMessages.push(`${player2.walletAddress?.substring(0, 10)}... punches with speed bonus vs dodge! Damage: ${bonusDamage}`);
-    } else {
-      result.logMessages.push(`${player2.walletAddress?.substring(0, 10)}... punches, but ${player1.walletAddress?.substring(0, 10)}... dodges! Miss!`);
-    }
-    
-    // Speed 3: Player 1 gains health when dodging punches
-    if (p1Stats.speed >= 3) {
-      const healthGain = getHealthGain(p1Stats.defense);
-      result.player1Effects.push({ type: 'health_gain', value: healthGain });
-      result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... gains ${healthGain} health from dodging with speed 3!`);
-    }
-  } else if (player1Action === BATTLE_ACTIONS.DODGE && player2Action === BATTLE_ACTIONS.KICK) {
-    // Dodge vs Kick - base damage
-    const baseDamage = getBaseDamage(p2Stats.attack);
-    
-    // Speed bonus: kicks do more damage to dodges
-    const p2SpeedBonus = getSpeedBonus(p2Stats.speed);
-    if (p2SpeedBonus >= 1) {
-      const bonusDamage = Math.floor(baseDamage * 0.3 * p2SpeedBonus);
-      result.player1Damage = bonusDamage;
-      result.logMessages.push(`${player2.walletAddress?.substring(0, 10)}... kicks with speed bonus vs dodge! Damage: ${bonusDamage}`);
-    } else {
-      result.logMessages.push(`${player2.walletAddress?.substring(0, 10)}... kicks, but ${player1.walletAddress?.substring(0, 10)}... dodges! Miss!`);
-    }
-    
-    // Speed 3: Player 1 gains health when dodging kicks
-    if (p1Stats.speed >= 3) {
-      const healthGain = getHealthGain(p1Stats.defense);
-      result.player1Effects.push({ type: 'health_gain', value: healthGain });
-      result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... gains ${healthGain} health from dodging with speed 3!`);
+      result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... tries to kick but misses while ${player2.walletAddress?.substring(0, 10)}... charges up!`);
     }
   } else if (player1Action === BATTLE_ACTIONS.BLOCK && player2Action === BATTLE_ACTIONS.PUNCH) {
-    // Block vs Punch - base damage reduced by defense
+    // Block vs Punch
     const baseDamage = getBaseDamage(p2Stats.attack);
-    const damage = Math.max(1, Math.floor(baseDamage * 0.5));
-    result.player1Damage = damage;
+    const criticalMultiplier = getCriticalHit(p2Stats.attack, p2Stats.speed);
+    const totalDamage = Math.floor(baseDamage * criticalMultiplier);
     
-    // Speed bonus: punches do more damage to blocks
-    const p2SpeedBonus = getSpeedBonus(p2Stats.speed);
-    if (p2SpeedBonus >= 1) {
-      const bonusDamage = Math.floor(baseDamage * 0.3 * p2SpeedBonus);
-      result.player1Damage += bonusDamage;
-      result.logMessages.push(`${player2.walletAddress?.substring(0, 10)}... punches with speed bonus vs block! Extra damage: +${bonusDamage}`);
+    const blockEffectiveness = getBlockEffectiveness(p1Stats.defense);
+    const finalDamage = Math.max(1, Math.floor(totalDamage * (1 - blockEffectiveness)));
+    
+    result.player1Damage = finalDamage;
+    
+    if (criticalMultiplier > 1.0) {
+      result.logMessages.push(`${player2.walletAddress?.substring(0, 10)}... lands a CRITICAL PUNCH! Damage: ${totalDamage}`);
     }
     
-    // Speed 3: Player 1 gains health when blocking punches
-    if (p1Stats.speed >= 3) {
-      const healthGain = getHealthGain(p1Stats.defense);
-      result.player1Effects.push({ type: 'health_gain', value: healthGain });
-      result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... gains ${healthGain} health from blocking with speed 3!`);
-    }
-    
-    result.logMessages.push(`${player2.walletAddress?.substring(0, 10)}... punches, but ${player1.walletAddress?.substring(0, 10)}... blocks! Total damage: ${result.player1Damage}`);
+    result.logMessages.push(`${player2.walletAddress?.substring(0, 10)}... punches for ${totalDamage} damage, but ${player1.walletAddress?.substring(0, 10)}... blocks! Final damage: ${finalDamage}`);
   } else if (player1Action === BATTLE_ACTIONS.BLOCK && player2Action === BATTLE_ACTIONS.KICK) {
-    // Block vs Kick - base damage reduced by defense
-    const baseDamage = getBaseDamage(p2Stats.attack);
-    const damage = Math.max(1, Math.floor(baseDamage * 0.5));
-    result.player1Damage = damage;
+    // Block vs Kick
+    const hitChance = getKickHitChance(p2Stats.speed);
     
-    // Speed bonus: kicks do more damage to blocks
-    const p2SpeedBonus = getSpeedBonus(p2Stats.speed);
-    if (p2SpeedBonus >= 1) {
-      const bonusDamage = Math.floor(baseDamage * 0.4 * p2SpeedBonus);
-      result.player1Damage += bonusDamage;
-      result.logMessages.push(`${player2.walletAddress?.substring(0, 10)}... kicks with speed bonus vs block! Extra damage: +${bonusDamage}`);
+    if (Math.random() < hitChance) {
+      const baseDamage = getBaseDamage(p2Stats.attack) * 2; // Double damage
+      const criticalMultiplier = getCriticalHit(p2Stats.attack, p2Stats.speed);
+      const totalDamage = Math.floor(baseDamage * criticalMultiplier);
+      
+      const blockEffectiveness = getBlockEffectiveness(p1Stats.defense);
+      const finalDamage = Math.max(1, Math.floor(totalDamage * (1 - blockEffectiveness)));
+      
+      result.player1Damage = finalDamage;
+      
+      if (criticalMultiplier > 1.0) {
+        result.logMessages.push(`${player2.walletAddress?.substring(0, 10)}... lands a CRITICAL KICK! Damage: ${totalDamage}`);
+      }
+      
+      result.logMessages.push(`${player2.walletAddress?.substring(0, 10)}... lands a powerful kick for ${totalDamage} damage, but ${player1.walletAddress?.substring(0, 10)}... blocks! Final damage: ${finalDamage}`);
+    } else {
+      result.logMessages.push(`${player2.walletAddress?.substring(0, 10)}... tries to kick but misses while ${player1.walletAddress?.substring(0, 10)}... blocks!`);
     }
+  } else if (player1Action === BATTLE_ACTIONS.CHARGE && player2Action === BATTLE_ACTIONS.PUNCH) {
+    // Charge vs Punch
+    const chargeSuccess = getChargeSuccessChance(p1Stats.speed);
     
-    // Speed 3: Player 1 gains health when blocking kicks
-    if (p1Stats.speed >= 3) {
-      const healthGain = getHealthGain(p1Stats.defense);
-      result.player1Effects.push({ type: 'health_gain', value: healthGain });
-      result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... gains ${healthGain} health from blocking with speed 3!`);
+    if (Math.random() < chargeSuccess) {
+      const baseDamage = getBaseDamage(p2Stats.attack);
+      const criticalMultiplier = getCriticalHit(p2Stats.attack, p2Stats.speed);
+      const totalDamage = Math.floor(baseDamage * criticalMultiplier);
+      
+      result.player1Damage = totalDamage;
+      
+      if (criticalMultiplier > 1.0) {
+        result.logMessages.push(`${player2.walletAddress?.substring(0, 10)}... lands a CRITICAL PUNCH! Damage: ${totalDamage}`);
+      }
+      
+      result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... successfully charges up while ${player2.walletAddress?.substring(0, 10)}... punches for ${totalDamage} damage!`);
+    } else {
+      result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... fails to charge up while ${player2.walletAddress?.substring(0, 10)}... punches!`);
     }
+  } else if (player1Action === BATTLE_ACTIONS.CHARGE && player2Action === BATTLE_ACTIONS.KICK) {
+    // Charge vs Kick
+    const chargeSuccess = getChargeSuccessChance(p1Stats.speed);
+    const kickHitChance = getKickHitChance(p2Stats.speed);
     
-    result.logMessages.push(`${player2.walletAddress?.substring(0, 10)}... kicks hard, but ${player1.walletAddress?.substring(0, 10)}... blocks! Total damage: ${result.player1Damage}`);
+    if (Math.random() < chargeSuccess) {
+      if (Math.random() < kickHitChance) {
+        const baseDamage = getBaseDamage(p2Stats.attack) * 2; // Double damage
+        const criticalMultiplier = getCriticalHit(p2Stats.attack, p2Stats.speed);
+        const totalDamage = Math.floor(baseDamage * criticalMultiplier);
+        
+        result.player1Damage = totalDamage;
+        
+        if (criticalMultiplier > 1.0) {
+          result.logMessages.push(`${player2.walletAddress?.substring(0, 10)}... lands a CRITICAL KICK! Damage: ${totalDamage}`);
+        }
+        
+        result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... successfully charges up while ${player2.walletAddress?.substring(0, 10)}... lands a powerful kick for ${totalDamage} damage!`);
+      } else {
+        result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... successfully charges up while ${player2.walletAddress?.substring(0, 10)}... tries to kick but misses!`);
+      }
+    } else {
+      if (Math.random() < kickHitChance) {
+        const baseDamage = getBaseDamage(p2Stats.attack) * 2; // Double damage
+        const criticalMultiplier = getCriticalHit(p2Stats.attack, p2Stats.speed);
+        const totalDamage = Math.floor(baseDamage * criticalMultiplier);
+        
+        result.player1Damage = totalDamage;
+        
+        if (criticalMultiplier > 1.0) {
+          result.logMessages.push(`${player2.walletAddress?.substring(0, 10)}... lands a CRITICAL KICK! Damage: ${totalDamage}`);
+        }
+        
+        result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... fails to charge up while ${player2.walletAddress?.substring(0, 10)}... lands a powerful kick for ${totalDamage} damage!`);
+      } else {
+        result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... fails to charge up while ${player2.walletAddress?.substring(0, 10)}... tries to kick but misses!`);
+      }
+    }
   } else if (player1Action === BATTLE_ACTIONS.PUNCH && player2Action === BATTLE_ACTIONS.PUNCH) {
-    // Punch vs Punch - both take same base damage
-    const p1Damage = getBaseDamage(p2Stats.attack);
-    const p2Damage = getBaseDamage(p1Stats.attack);
-    result.player1Damage = p1Damage;
-    result.player2Damage = p2Damage;
-    result.logMessages.push(`Both players punch each other! ${player1.walletAddress?.substring(0, 10)}... takes ${p1Damage} damage, ${player2.walletAddress?.substring(0, 10)}... takes ${p2Damage} damage`);
+    // Punch vs Punch
+    const p1BaseDamage = getBaseDamage(p1Stats.attack);
+    const p2BaseDamage = getBaseDamage(p2Stats.attack);
+    
+    const p1CriticalMultiplier = getCriticalHit(p1Stats.attack, p1Stats.speed);
+    const p2CriticalMultiplier = getCriticalHit(p2Stats.attack, p2Stats.speed);
+    
+    const p1TotalDamage = Math.floor(p1BaseDamage * p1CriticalMultiplier);
+    const p2TotalDamage = Math.floor(p2BaseDamage * p2CriticalMultiplier);
+    
+    result.player1Damage = p2TotalDamage;
+    result.player2Damage = p1TotalDamage;
+    
+    if (p1CriticalMultiplier > 1.0) {
+      result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... lands a CRITICAL PUNCH! Damage: ${p1TotalDamage}`);
+    }
+    if (p2CriticalMultiplier > 1.0) {
+      result.logMessages.push(`${player2.walletAddress?.substring(0, 10)}... lands a CRITICAL PUNCH! Damage: ${p2TotalDamage}`);
+    }
+    
+    result.logMessages.push(`Both players punch each other! ${player1.walletAddress?.substring(0, 10)}... takes ${p2TotalDamage} damage, ${player2.walletAddress?.substring(0, 10)}... takes ${p1TotalDamage} damage`);
   } else if (player1Action === BATTLE_ACTIONS.KICK && player2Action === BATTLE_ACTIONS.KICK) {
-    // Kick vs Kick - both take same base damage
-    const p1Damage = getBaseDamage(p2Stats.attack);
-    const p2Damage = getBaseDamage(p1Stats.attack);
-    result.player1Damage = p1Damage;
-    result.player2Damage = p2Damage;
-    result.logMessages.push(`Both players kick each other! ${player1.walletAddress?.substring(0, 10)}... takes ${p1Damage} damage, ${player2.walletAddress?.substring(0, 10)}... takes ${p2Damage} damage`);
+    // Kick vs Kick
+    const p1HitChance = getKickHitChance(p1Stats.speed);
+    const p2HitChance = getKickHitChance(p2Stats.speed);
+    
+    let p1Damage = 0;
+    let p2Damage = 0;
+    
+    if (Math.random() < p1HitChance) {
+      const p1BaseDamage = getBaseDamage(p1Stats.attack) * 2;
+      const p1CriticalMultiplier = getCriticalHit(p1Stats.attack, p1Stats.speed);
+      p1Damage = Math.floor(p1BaseDamage * p1CriticalMultiplier);
+      
+      if (p1CriticalMultiplier > 1.0) {
+        result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... lands a CRITICAL KICK! Damage: ${p1Damage}`);
+      }
+    } else {
+      result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... tries to kick but misses!`);
+    }
+    
+    if (Math.random() < p2HitChance) {
+      const p2BaseDamage = getBaseDamage(p2Stats.attack) * 2;
+      const p2CriticalMultiplier = getCriticalHit(p2Stats.attack, p2Stats.speed);
+      p2Damage = Math.floor(p2BaseDamage * p2CriticalMultiplier);
+      
+      if (p2CriticalMultiplier > 1.0) {
+        result.logMessages.push(`${player2.walletAddress?.substring(0, 10)}... lands a CRITICAL KICK! Damage: ${p2Damage}`);
+      }
+    } else {
+      result.logMessages.push(`${player2.walletAddress?.substring(0, 10)}... tries to kick but misses!`);
+    }
+    
+    result.player1Damage = p2Damage;
+    result.player2Damage = p1Damage;
+    
+    if (p1Damage > 0 || p2Damage > 0) {
+      result.logMessages.push(`Both players kick each other! ${player1.walletAddress?.substring(0, 10)}... takes ${p2Damage} damage, ${player2.walletAddress?.substring(0, 10)}... takes ${p1Damage} damage`);
+    }
   } else if (player1Action === BATTLE_ACTIONS.PUNCH && player2Action === BATTLE_ACTIONS.KICK) {
-    // Punch vs Kick - both do same base damage
-    const p1Damage = getBaseDamage(p2Stats.attack);
-    const p2Damage = getBaseDamage(p1Stats.attack);
-    result.player1Damage = p1Damage;
-    result.player2Damage = p2Damage;
-    result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... punches for ${p2Damage} damage, ${player2.walletAddress?.substring(0, 10)}... kicks for ${p1Damage} damage!`);
+    // Punch vs Kick
+    const p1BaseDamage = getBaseDamage(p1Stats.attack);
+    const p2BaseDamage = getBaseDamage(p2Stats.attack) * 2;
+    
+    const p1CriticalMultiplier = getCriticalHit(p1Stats.attack, p1Stats.speed);
+    const p2CriticalMultiplier = getCriticalHit(p2Stats.attack, p2Stats.speed);
+    
+    const p1TotalDamage = Math.floor(p1BaseDamage * p1CriticalMultiplier);
+    const p2TotalDamage = Math.floor(p2BaseDamage * p2CriticalMultiplier);
+    
+    const p2HitChance = getKickHitChance(p2Stats.speed);
+    
+    if (Math.random() < p2HitChance) {
+      result.player1Damage = p2TotalDamage;
+      
+      if (p2CriticalMultiplier > 1.0) {
+        result.logMessages.push(`${player2.walletAddress?.substring(0, 10)}... lands a CRITICAL KICK! Damage: ${p2TotalDamage}`);
+      }
+      
+      result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... punches for ${p1TotalDamage} damage, ${player2.walletAddress?.substring(0, 10)}... lands a powerful kick for ${p2TotalDamage} damage!`);
+    } else {
+      result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... punches for ${p1TotalDamage} damage, ${player2.walletAddress?.substring(0, 10)}... tries to kick but misses!`);
+    }
+    
+    result.player2Damage = p1TotalDamage;
   } else if (player1Action === BATTLE_ACTIONS.KICK && player2Action === BATTLE_ACTIONS.PUNCH) {
-    // Kick vs Punch - both do same base damage
-    const p1Damage = getBaseDamage(p2Stats.attack);
-    const p2Damage = getBaseDamage(p1Stats.attack);
-    result.player1Damage = p1Damage;
-    result.player2Damage = p2Damage;
-    result.logMessages.push(`${player2.walletAddress?.substring(0, 10)}... punches for ${p1Damage} damage, ${player1.walletAddress?.substring(0, 10)}... kicks for ${p2Damage} damage!`);
-  } else if (player1Action === BATTLE_ACTIONS.DODGE && player2Action === BATTLE_ACTIONS.DODGE) {
-    // Dodge vs Dodge - no damage
-    result.logMessages.push(`Both players dodge! No damage dealt.`);
+    // Kick vs Punch
+    const p1BaseDamage = getBaseDamage(p1Stats.attack) * 2;
+    const p2BaseDamage = getBaseDamage(p2Stats.attack);
+    
+    const p1CriticalMultiplier = getCriticalHit(p1Stats.attack, p1Stats.speed);
+    const p2CriticalMultiplier = getCriticalHit(p2Stats.attack, p2Stats.speed);
+    
+    const p1TotalDamage = Math.floor(p1BaseDamage * p1CriticalMultiplier);
+    const p2TotalDamage = Math.floor(p2BaseDamage * p2CriticalMultiplier);
+    
+    const p1HitChance = getKickHitChance(p1Stats.speed);
+    
+    if (Math.random() < p1HitChance) {
+      result.player2Damage = p1TotalDamage;
+      
+      if (p1CriticalMultiplier > 1.0) {
+        result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... lands a CRITICAL KICK! Damage: ${p1TotalDamage}`);
+      }
+      
+      result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... lands a powerful kick for ${p1TotalDamage} damage, ${player2.walletAddress?.substring(0, 10)}... punches for ${p2TotalDamage} damage!`);
+    } else {
+      result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... tries to kick but misses, ${player2.walletAddress?.substring(0, 10)}... punches for ${p2TotalDamage} damage!`);
+    }
+    
+    result.player1Damage = p2TotalDamage;
   } else if (player1Action === BATTLE_ACTIONS.BLOCK && player2Action === BATTLE_ACTIONS.BLOCK) {
-    // Block vs Block - no damage
+    // Block vs Block
     result.logMessages.push(`Both players block! No damage dealt.`);
-  } else if (player1Action === BATTLE_ACTIONS.DODGE && player2Action === BATTLE_ACTIONS.BLOCK) {
-    // Dodge vs Block - no damage
-    result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... dodges while ${player2.walletAddress?.substring(0, 10)}... blocks. No damage dealt.`);
-  } else if (player1Action === BATTLE_ACTIONS.BLOCK && player2Action === BATTLE_ACTIONS.DODGE) {
-    // Block vs Dodge - no damage
-    result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... blocks while ${player2.walletAddress?.substring(0, 10)}... dodges. No damage dealt.`);
+  } else if (player1Action === BATTLE_ACTIONS.CHARGE && player2Action === BATTLE_ACTIONS.CHARGE) {
+    // Charge vs Charge
+    const p1ChargeSuccess = getChargeSuccessChance(p1Stats.speed);
+    const p2ChargeSuccess = getChargeSuccessChance(p2Stats.speed);
+    
+    if (Math.random() < p1ChargeSuccess && Math.random() < p2ChargeSuccess) {
+      result.logMessages.push(`Both players successfully charge up! Next attacks will be devastating!`);
+    } else if (Math.random() < p1ChargeSuccess) {
+      result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... successfully charges up while ${player2.walletAddress?.substring(0, 10)}... fails to charge!`);
+    } else if (Math.random() < p2ChargeSuccess) {
+      result.logMessages.push(`${player2.walletAddress?.substring(0, 10)}... successfully charges up while ${player1.walletAddress?.substring(0, 10)}... fails to charge!`);
+    } else {
+      result.logMessages.push(`Both players fail to charge up!`);
+    }
+  } else if (player1Action === BATTLE_ACTIONS.BLOCK && player2Action === BATTLE_ACTIONS.CHARGE) {
+    // Block vs Charge
+    const chargeSuccess = getChargeSuccessChance(p2Stats.speed);
+    
+    if (Math.random() < chargeSuccess) {
+      result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... blocks while ${player2.walletAddress?.substring(0, 10)}... successfully charges up!`);
+    } else {
+      result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... blocks while ${player2.walletAddress?.substring(0, 10)}... fails to charge up!`);
+    }
+  } else if (player1Action === BATTLE_ACTIONS.CHARGE && player2Action === BATTLE_ACTIONS.BLOCK) {
+    // Charge vs Block
+    const chargeSuccess = getChargeSuccessChance(p1Stats.speed);
+    
+    if (Math.random() < chargeSuccess) {
+      result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... successfully charges up while ${player2.walletAddress?.substring(0, 10)}... blocks!`);
+    } else {
+      result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... fails to charge up while ${player2.walletAddress?.substring(0, 10)}... blocks!`);
+    }
   }
 
   // Determine round winner based on damage dealt
@@ -400,27 +505,27 @@ export function getBattleActionDescriptions() {
   return {
     [BATTLE_ACTIONS.PUNCH]: {
       name: 'Punch',
-      description: 'Attack based on attack stat. Speed bonus vs dodges!',
+      description: 'Regular attack damage based on attack stat. 10% chance to critical hit!',
       icon: '👊',
       color: 'bg-red-500 hover:bg-red-600'
     },
     [BATTLE_ACTIONS.KICK]: {
       name: 'Kick',
-      description: 'Attack based on attack stat. Speed bonus vs blocks!',
+      description: 'Double damage but 50% chance to miss. Speed increases hit chance!',
       icon: '🦵',
       color: 'bg-orange-500 hover:bg-orange-600'
     },
-    [BATTLE_ACTIONS.DODGE]: {
-      name: 'Dodge',
-      description: 'Avoid attacks. Speed 3+ gains health from dodging!',
-      icon: '💨',
-      color: 'bg-blue-500 hover:bg-blue-600'
-    },
     [BATTLE_ACTIONS.BLOCK]: {
       name: 'Block',
-      description: 'Reduce damage. Speed 3+ gains health from blocking!',
+      description: 'Protects from half of incoming damage. Defense increases protection!',
       icon: '🛡️',
       color: 'bg-purple-500 hover:bg-purple-600'
+    },
+    [BATTLE_ACTIONS.CHARGE]: {
+      name: 'Charge',
+      description: 'Next attack does double damage. Speed increases charge success!',
+      icon: '⚡',
+      color: 'bg-yellow-500 hover:bg-yellow-600'
     }
   };
 }

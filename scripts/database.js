@@ -87,12 +87,12 @@ const SessionSchema = new mongoose.Schema({
     },
     user1Action: {
         type: String,
-        enum: ['punch', 'kick', 'dodge', 'block', 'spare', 'burn', 'spared', 'destroyed', ''],
+        enum: ['punch', 'kick', 'block', 'charge', 'spare', 'burn', 'spared', 'destroyed', ''],
         default: ''
     },
     user2Action: {
         type: String,
-        enum: ['punch', 'kick', 'dodge', 'block', 'spare', 'burn', 'spared', 'destroyed', ''],
+        enum: ['punch', 'kick', 'block', 'charge', 'spare', 'burn', 'spared', 'destroyed', ''],
         default: ''
     },
     battleLog: [{
@@ -188,7 +188,11 @@ const generateUniqueSessionId = async () => {
 };
 
 // Check if model already exists before creating it
-const Session = mongoose.models.Session || mongoose.model('Session', SessionSchema);
+// Force delete the old model to ensure new schema is used
+if (mongoose.models.Session) {
+    delete mongoose.models.Session;
+}
+const Session = mongoose.model('Session', SessionSchema);
 
 // Session management functions
 const createSession = async (user1, status = 'waiting') => {
@@ -211,7 +215,7 @@ const createSession = async (user1, status = 'waiting') => {
                 image: user1.image,
                 attributes: user1.attributes
             },
-            user1Health: 100 + (user1.attributes.defense * 20), // Base 100 + 20 per defense point
+                         user1Health: 150 + (user1.attributes.defense * 30), // Base 150 + 30 per defense point
             status: 'waiting',
             battlePhase: 'waiting',
             currentRound: 1,
@@ -324,7 +328,7 @@ const joinSession = async (sessionId, user2) => {
                         image: user2.image,
                         attributes: user2.attributes
                     },
-                    user2Health: 100 + (user2.attributes.defense * 20), // Base 100 + 20 per defense point
+                                         user2Health: 150 + (user2.attributes.defense * 30), // Base 150 + 30 per defense point
                     status: 'active',
                     battlePhase: 'action-selection',
                     updatedAt: new Date()
@@ -583,8 +587,8 @@ const processBattleLogic = (user1Action, user2Action, session) => {
         return 0; // No bonus
     };
     
-    // Helper function to calculate base damage (same for punches and kicks)
-    const getBaseDamage = (attackStat) => Math.max(1, attackStat * 6);
+         // Helper function to calculate base damage (same for punches and kicks)
+     const getBaseDamage = (attackStat) => Math.max(15, attackStat * 8);
     
     // Helper function to calculate health gain from defense
     const getHealthGain = (defenseStat) => Math.max(1, Math.floor(defenseStat * 0.5));
@@ -602,18 +606,18 @@ const processBattleLogic = (user1Action, user2Action, session) => {
         const speedBonus = getSpeedBonus(user1Stats.speed);
         user2Damage = baseDamage + speedBonus;
         message = `User1 kicks but User2 blocks! User2 takes ${user2Damage} damage${speedBonus > 0 ? ` (includes ${speedBonus} speed bonus)` : ''}.`;
-    } else if (user1Action === 'punch' && user2Action === 'dodge') {
-        // Punch vs Dodge - reduced damage
+    } else if (user1Action === 'punch' && user2Action === 'charge') {
+        // Punch vs Charge - normal damage while opponent charges
         const baseDamage = getBaseDamage(user1Stats.attack);
-        const speedBonus = getSpeedBonus(user1Stats.speed);
+        const speedBonus = getSpeedBonus(user1Stats.attack);
         user2Damage = baseDamage + speedBonus;
-        message = `User1 punches but User2 dodges! User2 takes ${user2Damage} damage${speedBonus > 0 ? ` (includes ${speedBonus} speed bonus)` : ''}.`;
-    } else if (user1Action === 'kick' && user2Action === 'dodge') {
-        // Kick vs Dodge - reduced damage
-        const baseDamage = getBaseDamage(user1Stats.attack);
-        const speedBonus = getSpeedBonus(user1Stats.speed);
-        user2Damage = baseDamage + speedBonus;
-        message = `User1 kicks but User2 dodges! User2 takes ${user2Damage} damage${speedBonus > 0 ? ` (includes ${speedBonus} speed bonus)` : ''}.`;
+        message = `User1 punches while User2 charges up! User2 takes ${user2Damage} damage${speedBonus > 0 ? ` (includes ${speedBonus} speed bonus)` : ''}.`;
+         } else if (user1Action === 'kick' && user2Action === 'charge') {
+         // Kick vs Charge - 1.5x damage while opponent charges
+         const baseDamage = getBaseDamage(user1Stats.attack) * 1.5;
+         const speedBonus = getSpeedBonus(user1Stats.attack);
+         user2Damage = baseDamage + speedBonus;
+         message = `User1 kicks while User2 charges up! User2 takes ${user2Damage} damage${speedBonus > 0 ? ` (includes ${speedBonus} speed bonus)` : ''}.`;
     } else if (user2Action === 'punch' && user1Action === 'block') {
         // User2 Punch vs User1 Block - reduced damage
         const baseDamage = getBaseDamage(user2Stats.attack);
@@ -626,18 +630,18 @@ const processBattleLogic = (user1Action, user2Action, session) => {
         const speedBonus = getSpeedBonus(user2Stats.speed);
         user1Damage = baseDamage + speedBonus;
         message = `User2 kicks but User1 blocks! User1 takes ${user1Damage} damage${speedBonus > 0 ? ` (includes ${speedBonus} speed bonus)` : ''}.`;
-    } else if (user2Action === 'punch' && user1Action === 'dodge') {
-        // User2 Punch vs User1 Dodge - reduced damage
+    } else if (user2Action === 'punch' && user1Action === 'charge') {
+        // User2 Punch vs User1 Charge - normal damage while opponent charges
         const baseDamage = getBaseDamage(user2Stats.attack);
-        const speedBonus = getSpeedBonus(user2Stats.speed);
+        const speedBonus = getSpeedBonus(user2Stats.attack);
         user1Damage = baseDamage + speedBonus;
-        message = `User2 punches but User1 dodges! User1 takes ${user1Damage} damage${speedBonus > 0 ? ` (includes ${speedBonus} speed bonus)` : ''}.`;
-    } else if (user2Action === 'kick' && user1Action === 'block') {
-        // User2 Kick vs User1 Dodge - reduced damage
-        const baseDamage = getBaseDamage(user2Stats.attack);
-        const speedBonus = getSpeedBonus(user2Stats.speed);
-        user1Damage = baseDamage + speedBonus;
-        message = `User2 kicks but User1 dodges! User1 takes ${user1Damage} damage${speedBonus > 0 ? ` (includes ${speedBonus} speed bonus)` : ''}.`;
+        message = `User2 punches while User1 charges up! User1 takes ${user1Damage} damage${speedBonus > 0 ? ` (includes ${speedBonus} speed bonus)` : ''}.`;
+         } else if (user2Action === 'kick' && user1Action === 'charge') {
+         // User2 Kick vs User1 Charge - 1.5x damage while opponent charges
+         const baseDamage = getBaseDamage(user2Stats.attack) * 1.5;
+         const speedBonus = getSpeedBonus(user2Stats.attack);
+         user1Damage = baseDamage + speedBonus;
+         message = `User2 kicks while User1 charges up! User1 takes ${user1Damage} damage${speedBonus > 0 ? ` (includes ${speedBonus} speed bonus)` : ''}.`;
     } else if (user1Action === 'punch' && user2Action === 'punch') {
         // Punch vs Punch - equal damage
         const baseDamage = getBaseDamage(user1Stats.attack);
@@ -666,11 +670,11 @@ const processBattleLogic = (user1Action, user2Action, session) => {
         user1Damage = user2BaseDamage;
         user2Damage = baseDamage;
         message = `User1 kicks vs User2 punches! User1 takes ${user1Damage} damage, User2 takes ${user2Damage} damage.`;
-    } else if (user1Action === 'dodge' && user2Action === 'dodge') {
-        // Dodge vs Dodge - minimal damage
-        user1Damage = Math.max(1, Math.floor(user2Stats.attack * 0.3));
-        user2Damage = Math.max(1, Math.floor(user1Stats.attack * 0.3));
-        message = `Both players dodge! Minimal damage: User1 takes ${user1Damage}, User2 takes ${user2Damage}.`;
+    } else if (user1Action === 'charge' && user2Action === 'charge') {
+        // Charge vs Charge - both charge up
+        user1Damage = 0;
+        user2Damage = 0;
+        message = `Both players charge up! No damage dealt this round.`;
     } else if (user1Action === 'block' && user2Action === 'block') {
         // Block vs Block - minimal damage
         user1Damage = Math.max(1, Math.floor(user2Stats.attack * 0.3));
@@ -886,8 +890,8 @@ const startNewBattle = async (sessionId) => {
                     user2Action: '',
                     battlePhase: 'action-selection',
                     currentRound: 1,
-                    user1Health: 100 + (session.user1.attributes.defense * 20), // Reset to full health
-                    user2Health: 100 + (session.user2.attributes.defense * 20), // Reset to full health
+                                         user1Health: 150 + (session.user1.attributes.defense * 30), // Reset to full health
+                     user2Health: 150 + (session.user2.attributes.defense * 30), // Reset to full health
                     updatedAt: new Date()
                 },
                 $unset: { battleLog: 1 } // Clear battle log for new battle
