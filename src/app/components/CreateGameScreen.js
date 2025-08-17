@@ -10,7 +10,8 @@ export default function CreateGameScreen({
   isWaitingForPlayer,
   onContinueToBattle,
   canContinue,
-  onCheckSessionStatus
+  onCheckSessionStatus,
+  loading
 }) {
   const [showDrawing, setShowDrawing] = useState(false);
   const [avatarImage, setAvatarImage] = useState('');
@@ -107,8 +108,23 @@ export default function CreateGameScreen({
     return `${Math.floor(diff / 3600)}h ago`;
   };
 
+  const hasValidAttributes = () => {
+    return (attributes.attack + attributes.defense + attributes.speed) === 3;
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 p-4 relative">
+      {/* Loading Overlay */}
+      {loading && (
+        <div className="absolute inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-8 border border-white/20 text-center">
+            <div className="w-16 h-16 border-4 border-white/30 border-t-white rounded-full animate-spin mx-auto mb-4"></div>
+            <h3 className="text-2xl font-bold text-white mb-2">Creating Battle Session</h3>
+            <p className="text-blue-200">Please wait while we set up your game...</p>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-12">
@@ -131,7 +147,11 @@ export default function CreateGameScreen({
               <div className="flex gap-3 mb-6">
                 <button
                   onClick={() => setShowDrawing(true)}
-                  className="flex-1 px-4 py-4 bg-gradient-to-r from-purple-500 to-pink-600 text-white font-bold text-lg rounded-xl hover:from-purple-600 hover:to-pink-700 transition-all duration-200 transform hover:scale-105"
+                  disabled={loading}
+                  className={`flex-1 px-4 py-4 font-bold text-lg rounded-xl transition-all duration-200 ${loading
+                      ? 'bg-gray-500 text-gray-300 cursor-not-allowed'
+                      : 'bg-gradient-to-r from-purple-500 to-pink-600 text-white hover:from-purple-600 hover:to-pink-700 transform hover:scale-105'
+                    }`}
                 >
                   <div className="flex items-center justify-center gap-3">
                     <Palette className="w-6 h-6" />
@@ -167,7 +187,11 @@ export default function CreateGameScreen({
                   <h3 className="text-lg font-semibold text-white">Attributes</h3>
                   <button
                     onClick={() => setAttributes({ attack: 0, defense: 0, speed: 0 })}
-                    className="px-3 py-1 bg-red-500/20 text-red-300 text-sm rounded-lg hover:bg-red-500/30 transition-colors border border-red-400/30"
+                    disabled={loading}
+                    className={`px-3 py-1 text-sm rounded-lg transition-colors border ${loading
+                        ? 'bg-gray-500/20 text-gray-300 border-gray-400/30 cursor-not-allowed'
+                        : 'bg-red-500/20 text-red-300 hover:bg-red-500/30 border-red-400/30'
+                      }`}
                   >
                     Clear All
                   </button>
@@ -192,10 +216,11 @@ export default function CreateGameScreen({
                               setAttributes(prev => ({ ...prev, attack: level }));
                             }
                           }}
+                          disabled={loading}
                           className={`w-8 h-8 rounded-full transition-all duration-200 border-2 ${level <= attributes.attack
                             ? level === 1 ? 'bg-red-400 border-red-500' : level === 2 ? 'bg-red-500 border-red-600' : 'bg-red-600 border-red-700'
                             : 'bg-white/20 border-white/40 hover:bg-white/30'
-                            }`}
+                            } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
                         />
                       ))}
                     </div>
@@ -216,10 +241,11 @@ export default function CreateGameScreen({
                               setAttributes(prev => ({ ...prev, defense: level }));
                             }
                           }}
+                          disabled={loading}
                           className={`w-8 h-8 rounded-full transition-all duration-200 border-2 ${level <= attributes.defense
                             ? level === 1 ? 'bg-blue-400 border-blue-500' : level === 2 ? 'bg-blue-500 border-blue-600' : 'bg-blue-600 border-blue-700'
                             : 'bg-white/20 border-white/40 hover:bg-white/30'
-                            }`}
+                            } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
                         />
                       ))}
                     </div>
@@ -240,10 +266,11 @@ export default function CreateGameScreen({
                               setAttributes(prev => ({ ...prev, speed: level }));
                             }
                           }}
+                          disabled={loading}
                           className={`w-8 h-8 rounded-full transition-all duration-200 border-2 ${level <= attributes.speed
                             ? level === 1 ? 'bg-green-400 border-green-500' : level === 2 ? 'bg-green-500 border-green-600' : 'bg-green-600 border-green-700'
                             : 'bg-white/20 border-white/40 hover:bg-white/30'
-                            }`}
+                            } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
                         />
                       ))}
                     </div>
@@ -274,52 +301,14 @@ export default function CreateGameScreen({
                 <div className="w-4 h-4 bg-yellow-400 rounded-full animate-pulse"></div>
                 <h3 className="text-xl font-semibold text-yellow-300">Waiting for opponent to join...</h3>
               </div>
-              <p className="text-blue-200 mb-6">
-                Share the game code above with your friend. Once they join and draw their Kartikmon,
-                you can both continue to battle!
-              </p>
 
-              {/* Refresh Status Section */}
-              <div className="mb-6 p-4 bg-white/5 rounded-xl border border-white/10">
-                <div className="flex items-center justify-center gap-3 mb-3">
-                  <button
-                    onClick={checkSessionStatus}
-                    disabled={isRefreshing}
-                    className={`p-3 rounded-xl transition-all duration-200 ${isRefreshing
-                      ? 'bg-blue-500/50 text-blue-200 cursor-not-allowed'
-                      : 'bg-gradient-to-r from-blue-500/20 to-purple-500/20 text-blue-200 hover:from-blue-500/30 hover:to-purple-500/30 border border-blue-400/30'
-                      }`}
-                    title="Check if opponent has joined"
-                  >
-                    <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
-                  </button>
-                  <div className="text-center">
-                    <span className="text-sm text-white/80 block">
-                      {isRefreshing ? 'Checking status...' : 'Check status manually'}
-                    </span>
-                    <div className="flex items-center gap-2 justify-center">
-                      <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                      <span className="text-xs text-blue-300/60">
-                        Auto-refresh every 15s
-                      </span>
-                    </div>
+              <div className="mb-6">
+                <div className="bg-gradient-to-r from-blue-500/20 to-purple-500/20 border border-blue-400/30 rounded-2xl p-6 mb-4">
+                  <p className="text-blue-200 text-sm mb-2">Share this code with your friend</p>
+                  <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
+                    <p className="text-4xl font-mono font-bold text-white tracking-wider">{sessionId}</p>
                   </div>
                 </div>
-                {lastChecked && (
-                  <div className="text-center">
-                    <p className="text-xs text-white/60 mb-2">
-                      Last checked: {formatTimeAgo(lastChecked)}
-                    </p>
-                    <div className="w-full bg-white/10 rounded-full h-1">
-                      <div
-                        className="bg-gradient-to-r from-blue-400 to-purple-400 h-1 rounded-full transition-all duration-1000"
-                        style={{
-                          width: `${Math.max(0, 100 - (Math.floor((Date.now() - lastChecked.getTime()) / 1000) / 15) * 100)}%`
-                        }}
-                      ></div>
-                    </div>
-                  </div>
-                )}
               </div>
 
               {canContinue && (
@@ -339,13 +328,26 @@ export default function CreateGameScreen({
               </p>
               <button
                 onClick={handleCreateGame}
-                disabled={!avatarImage}
-                className={`px-8 py-4 font-bold text-xl rounded-xl transition-all duration-200 ${avatarImage
-                  ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700 transform hover:scale-105'
-                  : 'bg-gray-500 text-gray-300 cursor-not-allowed'
+                disabled={!avatarImage || !hasValidAttributes() || loading}
+                className={`px-8 py-4 font-bold text-xl rounded-xl transition-all duration-200 ${!avatarImage || !hasValidAttributes()
+                  ? 'bg-gray-500 text-gray-300 cursor-not-allowed'
+                  : loading
+                    ? 'bg-blue-500 text-white cursor-not-allowed'
+                    : 'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700 transform hover:scale-105'
                   }`}
               >
-                Create Battle Session
+                {loading ? (
+                  <div className="flex items-center justify-center gap-3">
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    <span>Creating Session...</span>
+                  </div>
+                ) : !avatarImage ? (
+                  'Draw Your Kartikmon'
+                ) : !hasValidAttributes() ? (
+                  'Set Attributes'
+                ) : (
+                  'Create Battle Session'
+                )}
               </button>
             </div>
           )}

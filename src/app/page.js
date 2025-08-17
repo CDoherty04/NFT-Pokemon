@@ -69,6 +69,7 @@ function AppLogic({ currentWalletAddress, user }) {
   const [currentBattle, setCurrentBattle] = useState(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [isMessageVisible, setIsMessageVisible] = useState(false);
 
   // Battle state
   const [userAction, setUserAction] = useState('');
@@ -646,6 +647,32 @@ function AppLogic({ currentWalletAddress, user }) {
     }
   }, [currentBattle]);
 
+  // Auto-dismiss messages after 4 seconds
+  useEffect(() => {
+    if (message) {
+      // Show message with animation
+      setIsMessageVisible(true);
+      
+      // Start exit animation after 3.5 seconds (before the 4 second timer)
+      const exitTimer = setTimeout(() => {
+        setIsMessageVisible(false);
+      }, 3500);
+      
+      // Clear message after exit animation completes
+      const clearTimer = setTimeout(() => {
+        setMessage('');
+        setIsMessageVisible(false);
+      }, 4000);
+      
+      return () => {
+        clearTimeout(exitTimer);
+        clearTimeout(clearTimer);
+      };
+    } else {
+      setIsMessageVisible(false);
+    }
+  }, [message]);
+
   // Get current session for create/join screens
   const getCurrentSession = () => {
     if (!currentWalletAddress) return null;
@@ -705,6 +732,7 @@ function AppLogic({ currentWalletAddress, user }) {
             onContinueToBattle={handleContinueToBattle}
             canContinue={canContinueToBattle()}
             onCheckSessionStatus={handleCheckSessionStatusEnhanced}
+            loading={loading}
           />
         );
       
@@ -746,7 +774,7 @@ function AppLogic({ currentWalletAddress, user }) {
     <div className="relative">
       {/* Header with Back Button, Wallet Widget, and Notifications */}
       <div className="fixed top-4 left-4 z-50">
-        {currentScreen !== 'menu' && (
+        {currentScreen !== 'menu' || currentScreen !== 'battle' && (
           <button
             onClick={() => navigateToScreen('menu')}
             disabled={loading}
@@ -772,8 +800,12 @@ function AppLogic({ currentWalletAddress, user }) {
       
       {/* Global Message Display */}
       {message && (
-        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50">
-          <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl px-6 py-3 text-white font-medium">
+        <div className={`fixed top-4 left-1/2 transform -translate-x-1/2 z-50 transition-all duration-300 ease-out ${
+          isMessageVisible 
+            ? 'translate-y-0 opacity-100' 
+            : '-translate-y-full opacity-0'
+        }`}>
+          <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl px-6 py-3 text-white font-medium shadow-lg">
             {message}
           </div>
         </div>

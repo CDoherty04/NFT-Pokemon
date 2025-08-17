@@ -20,13 +20,21 @@ export default function JoinGameScreen({
   };
 
   const handleJoinGame = () => {
-    if (gameCode && avatarImage) {
+    if (hasValidGameCode() && avatarImage && hasValidAttributes()) {
       onJoinGame(gameCode, avatarImage, attributes);
     }
   };
 
+  const hasValidAttributes = () => {
+    return (attributes.attack + attributes.defense + attributes.speed) === 3;
+  };
+
+  const hasValidGameCode = () => {
+    return gameCode.length === 8;
+  };
+
   const handleContinue = () => {
-    if (avatarImage && canContinue) {
+    if (avatarImage && hasValidAttributes() && canContinue) {
       onContinueToBattle();
     }
   };
@@ -228,23 +236,33 @@ export default function JoinGameScreen({
                 </div>
                 <button
                   onClick={handleContinue}
-                  className="px-8 py-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold text-xl rounded-xl hover:from-green-600 hover:to-emerald-700 transition-all duration-200 transform hover:scale-105"
+                  disabled={!avatarImage || !hasValidAttributes()}
+                  className={`px-8 py-4 font-bold text-xl rounded-xl transition-all duration-200 transform hover:scale-105 ${
+                    avatarImage && hasValidAttributes()
+                      ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700'
+                      : 'bg-gray-500 text-gray-300 cursor-not-allowed'
+                  }`}
                 >
-                  Continue to Battle!
+                                     {!avatarImage ? 'Draw Your Kartikmon' : 
+                    !hasValidAttributes() ? 'Set Attributes' : 
+                    'Continue to Battle!'}
                 </button>
               </div>
             ) : (
-              <button
-                onClick={handleJoinGame}
-                disabled={!gameCode || !avatarImage}
-                className={`px-8 py-4 font-bold text-xl rounded-xl transition-all duration-200 ${
-                  gameCode && avatarImage
-                    ? 'bg-gradient-to-r from-red-500 to-pink-600 text-white hover:from-red-600 hover:to-pink-700 transform hover:scale-105'
-                    : 'bg-gray-500 text-gray-300 cursor-not-allowed'
-                }`}
-              >
-                Join Battle Session
-              </button>
+                             <button
+                 onClick={handleJoinGame}
+                 disabled={!hasValidGameCode() || !avatarImage || !hasValidAttributes()}
+                 className={`px-8 py-4 font-bold text-xl rounded-xl transition-all duration-200 ${
+                   hasValidGameCode() && avatarImage && hasValidAttributes()
+                     ? 'bg-gradient-to-r from-red-500 to-pink-600 text-white hover:from-red-600 hover:to-pink-700 transform hover:scale-105'
+                     : 'bg-gray-500 text-gray-300 cursor-not-allowed'
+                 }`}
+               >
+                 {!hasValidGameCode() ? 'Enter 8-Digit Game Code' : 
+                  !avatarImage ? 'Draw Your Kartikmon First' : 
+                  !hasValidAttributes() ? 'Set All 3 Attributes' : 
+                  'Join Battle Session'}
+               </button>
             )}
           </div>
         </div>
