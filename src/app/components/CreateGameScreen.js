@@ -29,7 +29,7 @@ export default function CreateGameScreen({
     });
   }, [sessionId, isWaitingForPlayer, canContinue]);
 
-  // Auto-refresh session status every 15 seconds when waiting for player
+  // Auto-refresh session status every 5 seconds when waiting for player
   useEffect(() => {
     let interval;
     if (isWaitingForPlayer && sessionId) {
@@ -39,7 +39,7 @@ export default function CreateGameScreen({
       // Then set up the interval
       interval = setInterval(() => {
         checkSessionStatus();
-      }, 15000);
+      }, 5000);
     }
     return () => {
       if (interval) clearInterval(interval);
