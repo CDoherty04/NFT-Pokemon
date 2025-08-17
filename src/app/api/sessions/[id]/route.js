@@ -107,10 +107,24 @@ export async function PATCH(request, { params }) {
       const session = await submitUserAction(id, userWalletAddress, action);
       
       // Check if this was a battle processing response
-      const battleProcessed = session.user1Action === '' && session.user2Action === '';
+      // A battle is processed when both actions were submitted and the battle was resolved
+      // We can detect this by checking if the currentRound increased or if battlePhase changed
+      const battleProcessed = session.battlePhase === 'battle-resolution' || 
+                             session.battlePhase === 'completed' ||
+                             (session.battleLog && session.battleLog.length > 0);
+      
       const message = battleProcessed 
         ? 'Battle processed! New round starting.' 
         : 'Action submitted successfully';
+      
+      console.log('Action submission response:', {
+        sessionId: session.sessionId,
+        battleProcessed,
+        battlePhase: session.battlePhase,
+        currentRound: session.currentRound,
+        battleLogLength: session.battleLog ? session.battleLog.length : 0,
+        actions: { user1: session.user1Action, user2: session.user2Action }
+      });
       
       return NextResponse.json({ 
         success: true, 
