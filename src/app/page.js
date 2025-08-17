@@ -92,6 +92,7 @@ function AppLogic({ currentWalletAddress, user }) {
 
   // Navigation functions
   const navigateToScreen = (screen) => {
+    console.log('Navigating to screen:', screen, 'from current screen:', currentScreen);
     setCurrentScreen(screen);
     setMessage('');
   };
@@ -120,7 +121,20 @@ function AppLogic({ currentWalletAddress, user }) {
       const data = await response.json();
       if (data.success) {
         setMessage(`✅ Battle session created! Share the code: ${data.session.sessionId}`);
-        // Stay on create screen to show the session ID
+        
+        // Immediately add the new session to local state
+        const newSession = {
+          ...data.session,
+          status: 'waiting'
+        };
+        setSessions(prev => [newSession, ...prev]);
+        
+        // Also update the current battle state if needed
+        if (data.session.status === 'waiting') {
+          setCurrentBattle(newSession);
+        }
+        
+        // Fetch sessions to ensure we have the latest data
         await fetchSessions();
       } else {
         setMessage('❌ Error: ' + data.error);
@@ -134,6 +148,39 @@ function AppLogic({ currentWalletAddress, user }) {
 
   const handleContinueToBattle = () => {
     navigateToScreen('battle');
+  };
+
+  // Function to manually check for actions
+  const handleCheckForActions = async () => {
+    if (!currentBattle) return;
+    
+    try {
+      console.log('Manually checking for actions...');
+      const response = await fetch(`/api/sessions/${currentBattle.sessionId}`);
+      const data = await response.json();
+      
+      if (data.success && data.session) {
+        const updatedSession = data.session;
+        
+        // Check for new actions
+        if (updatedSession.user1Action && updatedSession.user1Action !== currentBattle.user1Action) {
+          console.log('New action from Player 1:', updatedSession.user1Action);
+          setBattleLog(prev => [...prev, `Player 1 chose: ${updatedSession.user1Action}`]);
+        }
+        
+        if (updatedSession.user2Action && updatedSession.user2Action !== currentBattle.user2Action) {
+          console.log('New action from Player 2:', updatedSession.user2Action);
+          setBattleLog(prev => [...prev, `Player 2 chose: ${updatedSession.user2Action}`]);
+        }
+        
+        // Update current battle
+        setCurrentBattle(updatedSession);
+        setMessage('✅ Action status updated!');
+      }
+    } catch (error) {
+      console.error('Error checking for actions:', error);
+      setMessage('❌ Error checking for actions');
+    }
   };
 
   // Session status checking function
@@ -209,6 +256,17 @@ function AppLogic({ currentWalletAddress, user }) {
             'Choose your actions simultaneously!'
           ]);
           
+          // Check for existing actions
+          if (data.session.user1Action || data.session.user2Action) {
+            console.log('Actions already submitted - user1:', data.session.user1Action, 'user2:', data.session.user2Action);
+            if (data.session.user1Action) {
+              setBattleLog(prev => [...prev, `Player 1 chose: ${data.session.user1Action}`]);
+            }
+            if (data.session.user2Action) {
+              setBattleLog(prev => [...prev, `Player 2 chose: ${data.session.user2Action}`]);
+            }
+          }
+          
           // Show success message
           setMessage('🎉 Opponent joined! Starting battle...');
           
@@ -238,6 +296,7 @@ function AppLogic({ currentWalletAddress, user }) {
 
     setLoading(true);
     try {
+      console.log('Joining game with code:', gameCode);
       const response = await fetch('/api/sessions', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -252,23 +311,57 @@ function AppLogic({ currentWalletAddress, user }) {
       });
 
       const data = await response.json();
+      console.log('Join game response:', data);
+      
       if (data.success) {
         setMessage('✅ Successfully joined the battle!');
-        await fetchSessions();
+        
         // Check if we can continue to battle
         if (data.session.status === 'active') {
+          console.log('Session is active, setting up battle state...');
+          
+          // Set battle state immediately
           setCurrentBattle(data.session);
           setBattlePhase('action-selection');
           setBattleLog([
-            `Battle started between ${data.session.user1?.walletAddress?.substring(0, 10)}... and ${data.session.user2?.walletAddress?.substring(0, 10)}...`,
+            `Battle started between ${data.session.user2?.walletAddress?.substring(0, 10)}... and ${data.session.user1?.walletAddress?.substring(0, 10)}...`,
             'Both Pokemon are ready for battle!',
             'Choose your actions simultaneously!'
           ]);
+          
+          // Check if there are already actions submitted
+          if (data.session.user1Action || data.session.user2Action) {
+            console.log('Actions already submitted - user1:', data.session.user1Action, 'user2:', data.session.user2Action);
+            // Add action info to battle log
+            if (data.session.user1Action) {
+              setBattleLog(prev => [...prev, `Player 1 chose: ${data.session.user1Action}`]);
+            }
+            if (data.session.user2Action) {
+              setBattleLog(prev => [...prev, `Player 2 chose: ${data.session.user2Action}`]);
+            }
+          }
+          
+          // Show success message and automatically navigate to battle screen
+          setMessage('🎉 Successfully joined! Starting battle...');
+          
+          console.log('Scheduling navigation to battle screen in 1.5 seconds...');
+          
+          // Automatically navigate to battle screen after a short delay
+          setTimeout(() => {
+            console.log('Navigating to battle screen now...');
+            navigateToScreen('battle');
+          }, 1500);
+        } else {
+          console.log('Session not active yet, status:', data.session.status);
         }
+        
+        // Update sessions after setting battle state
+        await fetchSessions();
       } else {
         setMessage('❌ Error: ' + data.error);
       }
     } catch (error) {
+      console.error('Error joining game:', error);
       setMessage('❌ Error: ' + error.message);
     } finally {
       setLoading(false);
@@ -383,8 +476,37 @@ function AppLogic({ currentWalletAddress, user }) {
       const data = await response.json();
       if (data.success) {
         setSessions(data.sessions);
-        // Check for active battle
-        const activeSession = data.sessions.find(session =>
+        
+        // Only update battle state if we don't already have an active battle
+        // This prevents overriding the battle state when a user just joined
+        if (!currentBattle || currentBattle.status !== 'active') {
+          const activeSession = data.sessions.find(session =>
+            session.status === 'active' &&
+            (session.user1?.walletAddress === currentWalletAddress ||
+              session.user2?.walletAddress === currentWalletAddress)
+          );
+          
+          if (activeSession) {
+            setCurrentBattle(activeSession);
+            setBattlePhase(activeSession.battlePhase || 'action-selection');
+            if (activeSession.battleLog && activeSession.battleLog.length > 0) {
+              setBattleLog(activeSession.battleLog.map(log => log.message));
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching sessions:', error);
+    }
+  };
+
+  // Check for active battle whenever sessions change
+  useEffect(() => {
+    if (sessions.length > 0 && currentWalletAddress) {
+      // Only update battle state if we don't already have an active battle
+      // This prevents overriding the battle state when a user just joined
+      if (!currentBattle || currentBattle.status !== 'active') {
+        const activeSession = sessions.find(session =>
           session.status === 'active' &&
           (session.user1?.walletAddress === currentWalletAddress ||
             session.user2?.walletAddress === currentWalletAddress)
@@ -398,33 +520,14 @@ function AppLogic({ currentWalletAddress, user }) {
           }
         }
       }
-    } catch (error) {
-      console.error('Error fetching sessions:', error);
     }
-  };
+  }, [sessions, currentWalletAddress, currentBattle]);
 
-  // Check for active battle whenever sessions change
+  // Periodically refresh current battle and check for actions
   useEffect(() => {
-    if (sessions.length > 0 && currentWalletAddress) {
-      const activeSession = sessions.find(session =>
-        session.status === 'active' &&
-        (session.user1?.walletAddress === currentWalletAddress ||
-          session.user2?.walletAddress === currentWalletAddress)
-      );
+    if (currentBattle) {
+      console.log('Starting auto-refresh for battle:', currentBattle.sessionId);
       
-      if (activeSession) {
-        setCurrentBattle(activeSession);
-        setBattlePhase(activeSession.battlePhase || 'action-selection');
-        if (activeSession.battleLog && activeSession.battleLog.length > 0) {
-          setBattleLog(activeSession.battleLog.map(log => log.message));
-        }
-      }
-    }
-  }, [sessions, currentWalletAddress]);
-
-  // Periodically refresh current battle
-  useEffect(() => {
-    if (currentBattle && battlePhase === 'action-selection') {
       const interval = setInterval(async () => {
         try {
           const response = await fetch(`/api/sessions/${currentBattle.sessionId}`);
@@ -437,7 +540,10 @@ function AppLogic({ currentWalletAddress, user }) {
             if (updatedSession.user1Action === '' && updatedSession.user2Action === '') {
               setUserAction('');
               setCurrentBattle(updatedSession);
-              setMessage('🎯 New round starting! Choose your action.');
+              // Only show message if we're on the battle screen
+              if (currentScreen === 'battle') {
+                setMessage('🎯 New round starting! Choose your action.');
+              }
               return;
             }
 
@@ -445,8 +551,22 @@ function AppLogic({ currentWalletAddress, user }) {
             if (updatedSession.currentRound > currentBattle.currentRound) {
               setUserAction('');
               setCurrentBattle(updatedSession);
-              setMessage(`🎯 Round ${updatedSession.currentRound} started! Choose your action.`);
+              // Only show message if we're on the battle screen
+              if (currentScreen === 'battle') {
+                setMessage(`🎯 Round ${updatedSession.currentRound} started! Choose your action.`);
+              }
               return;
+            }
+
+            // Check for new actions from opponent
+            if (updatedSession.user1Action && updatedSession.user1Action !== currentBattle.user1Action) {
+              console.log('Auto-refresh: Opponent 1 submitted action:', updatedSession.user1Action);
+              setCurrentBattle(updatedSession);
+            }
+            
+            if (updatedSession.user2Action && updatedSession.user2Action !== currentBattle.user2Action) {
+              console.log('Auto-refresh: Opponent 2 submitted action:', updatedSession.user2Action);
+              setCurrentBattle(updatedSession);
             }
 
             // Update battle log
@@ -470,18 +590,29 @@ function AppLogic({ currentWalletAddress, user }) {
 
       return () => clearInterval(interval);
     }
-  }, [currentBattle, battlePhase, currentWalletAddress]);
+  }, [currentBattle, currentWalletAddress, currentScreen]);
 
   // Get current session for create/join screens
   const getCurrentSession = () => {
     if (!currentWalletAddress) return null;
     
-    const session = sessions.find(session =>
-      session.user1?.walletAddress === currentWalletAddress ||
-      session.user2?.walletAddress === currentWalletAddress
-    );
+    const session = sessions.find(session => {
+      const user1Match = session.user1?.walletAddress === currentWalletAddress;
+      const user2Match = session.user2?.walletAddress === currentWalletAddress;
+      
+      console.log('Session check:', {
+        sessionId: session.sessionId,
+        user1Wallet: session.user1?.walletAddress,
+        user2Wallet: session.user2?.walletAddress,
+        currentWallet: currentWalletAddress,
+        user1Match,
+        user2Match
+      });
+      
+      return user1Match || user2Match;
+    });
     
-    console.log('getCurrentSession:', {
+    console.log('getCurrentSession result:', {
       currentWalletAddress: currentWalletAddress?.substring(0, 10) + '...',
       totalSessions: sessions.length,
       foundSession: !!session,
@@ -494,14 +625,18 @@ function AppLogic({ currentWalletAddress, user }) {
 
   const canContinueToBattle = () => {
     const session = getCurrentSession();
+    const canContinue = session && session.status === 'active' && session.user1 && session.user2;
+    
     console.log('canContinueToBattle check:', {
       hasSession: !!session,
       sessionStatus: session?.status,
       hasUser1: !!session?.user1,
       hasUser2: !!session?.user2,
-      sessionId: session?.sessionId
+      sessionId: session?.sessionId,
+      canContinue
     });
-    return session && session.status === 'active' && session.user1 && session.user2;
+    
+    return canContinue;
   };
 
   // Render current screen
@@ -538,6 +673,7 @@ function AppLogic({ currentWalletAddress, user }) {
             currentWalletAddress={currentWalletAddress}
             onSubmitAction={handleSubmitAction}
             onResetBattle={handleResetBattle}
+            onCheckForActions={handleCheckForActions}
             loading={loading}
             userAction={userAction}
             battlePhase={battlePhase}

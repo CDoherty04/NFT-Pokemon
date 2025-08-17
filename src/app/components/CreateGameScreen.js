@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Copy, Check, Palette } from 'lucide-react';
+import { ArrowLeft, Copy, Check, Palette, RefreshCw } from 'lucide-react';
 import DrawingApp from './DrawingApp';
 
 export default function CreateGameScreen({
@@ -19,6 +19,15 @@ export default function CreateGameScreen({
   const [attributes, setAttributes] = useState({ attack: 1, defense: 1, speed: 1 });
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastChecked, setLastChecked] = useState(null);
+
+  // Debug logging for props
+  useEffect(() => {
+    console.log('CreateGameScreen props:', {
+      sessionId,
+      isWaitingForPlayer,
+      canContinue
+    });
+  }, [sessionId, isWaitingForPlayer, canContinue]);
 
   // Auto-refresh session status every 1.5 seconds when waiting for player
   useEffect(() => {
@@ -77,8 +86,16 @@ export default function CreateGameScreen({
   };
 
   const handleCreateGame = () => {
+    console.log('CreateGameScreen handleCreateGame called with:', {
+      avatarImage: !!avatarImage,
+      attributes
+    });
+    
     if (avatarImage) {
+      console.log('Calling onCreateGame...');
       onCreateGame(avatarImage, attributes);
+    } else {
+      console.log('No avatar image, cannot create game');
     }
   };
 

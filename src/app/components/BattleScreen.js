@@ -45,12 +45,29 @@ export default function BattleScreen({
   currentWalletAddress,
   onSubmitAction,
   onResetBattle,
+  onCheckForActions,
   loading,
   userAction,
   battlePhase,
   battleLog 
 }) {
   const [showWalletWidget, setShowWalletWidget] = useState(false);
+  const [isCheckingActions, setIsCheckingActions] = useState(false);
+  const [lastActionCheck, setLastActionCheck] = useState(null);
+
+  // Handle action checking with loading state
+  const handleCheckActions = async () => {
+    if (onCheckForActions) {
+      setIsCheckingActions(true);
+      try {
+        await onCheckForActions();
+        setLastActionCheck(new Date());
+      } finally {
+        // Reset loading state after a short delay to show feedback
+        setTimeout(() => setIsCheckingActions(false), 1000);
+      }
+    }
+  };
 
   // Helper functions for health calculations
   const getMaxHealth = (defense) => 100 + (defense * 20);
@@ -99,6 +116,16 @@ export default function BattleScreen({
     const role = getCurrentUserRole();
     if (!role || !currentBattle) return null;
     return currentBattle[role]?.image;
+  };
+
+  // Format time ago for last action check
+  const formatTimeAgo = (date) => {
+    if (!date) return '';
+    const now = new Date();
+    const diff = Math.floor((now - date) / 1000);
+    if (diff < 60) return `${diff}s ago`;
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+    return `${Math.floor(diff / 3600)}h ago`;
   };
 
   const getOpponentImage = () => {
@@ -292,6 +319,46 @@ export default function BattleScreen({
         {/* Battle Actions */}
         <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-8 mb-8 border border-white/20">
           <h3 className="text-2xl font-bold text-white mb-6 text-center">Battle Actions</h3>
+          
+          {/* Action Status and Refresh */}
+          <div className="flex justify-center items-center gap-4 mb-6">
+            <div className="text-center">
+              <p className="text-blue-200 text-sm mb-2">Action Status</p>
+              <div className="flex gap-2">
+                <span className={`px-3 py-1 rounded-lg text-xs font-bold ${
+                  currentBattle?.user1Action ? 'bg-green-500/20 text-green-300 border border-green-400/30' : 'bg-gray-500/20 text-gray-300 border border-gray-400/30'
+                }`}>
+                  {currentBattle?.user1?.walletAddress?.substring(0, 8)}...: {currentBattle?.user1Action || 'Waiting...'}
+                </span>
+                <span className={`px-3 py-1 rounded-lg text-xs font-bold ${
+                  currentBattle?.user2Action ? 'bg-green-500/20 text-green-300 border border-green-400/30' : 'bg-gray-500/20 text-gray-300 border border-gray-400/30'
+                }`}>
+                  {currentBattle?.user2?.walletAddress?.substring(0, 8)}...: {currentBattle?.user2Action || 'Waiting...'}
+                </span>
+              </div>
+              {lastActionCheck && (
+                <p className="text-xs text-blue-300/60 mt-2">
+                  Last checked: {formatTimeAgo(lastActionCheck)}
+                </p>
+              )}
+            </div>
+            
+            <button
+              onClick={handleCheckActions}
+              disabled={loading || isCheckingActions}
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500/20 to-purple-500/20 text-blue-200 hover:from-blue-500/30 hover:to-purple-500/30 border border-blue-400/30 rounded-lg transition-all duration-200 hover:scale-105 disabled:opacity-50"
+              title="Check for new actions from opponent"
+            >
+              <RefreshCw className={`w-4 h-4 ${isCheckingActions ? 'animate-spin' : ''}`} />
+              <span>{isCheckingActions ? 'Checking...' : 'Check Actions'}</span>
+            </button>
+            
+            {/* Auto-refresh indicator */}
+            <div className="flex items-center gap-2 text-xs text-blue-300/60">
+              <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+              <span>Auto-refresh every 1.5s</span>
+            </div>
+          </div>
           
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <button
