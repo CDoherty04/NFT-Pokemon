@@ -3,7 +3,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Palette, Brush, Eraser, Download, RotateCcw, X } from 'lucide-react';
 
-export default function DrawingApp({ isOpen, onClose, onSave, title = "Draw Your Pokemon" }) {
+export default function DrawingApp({ isOpen, onClose, onSave, title = "Draw Your Kartikmon" }) {
   const canvasRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [tool, setTool] = useState('brush');

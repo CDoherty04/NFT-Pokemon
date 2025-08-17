@@ -16,7 +16,7 @@ export default function CreateGameScreen({
   const [showDrawing, setShowDrawing] = useState(false);
   const [avatarImage, setAvatarImage] = useState('');
   const [copied, setCopied] = useState(false);
-  const [attributes, setAttributes] = useState({ attack: 1, defense: 1, speed: 1 });
+  const [attributes, setAttributes] = useState({ attack: 0, defense: 0, speed: 0 });
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastChecked, setLastChecked] = useState(null);
 
@@ -125,7 +125,7 @@ export default function CreateGameScreen({
             Create New Battle
           </h1>
           <p className="text-xl text-blue-200">
-            Draw your Pokemon and share the code with a friend!
+            Draw your Kartikmon and share the code with a friend!
           </p>
         </div>
 
@@ -157,7 +157,7 @@ export default function CreateGameScreen({
 
         {/* Avatar Creation Section */}
         <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-8 mb-8 border border-white/20">
-          <h2 className="text-2xl font-bold text-white mb-6 text-center">Your Pokemon</h2>
+          <h2 className="text-2xl font-bold text-white mb-6 text-center">Your Kartikmon</h2>
 
           <div className="flex flex-col lg:flex-row items-center gap-8">
             {/* Avatar Display */}
@@ -179,14 +179,14 @@ export default function CreateGameScreen({
                 {avatarImage ? (
                   <img
                     src={avatarImage}
-                    alt="Your Pokemon"
+                    alt="Your Kartikmon"
                     className="w-full aspect-square rounded-2xl border-4 border-white/30 shadow-2xl"
                   />
                 ) : (
                   <div className="w-full aspect-square bg-white/20 rounded-2xl border-4 border-dashed border-white/30 flex items-center justify-center">
                     <div className="text-center text-white/60">
                       <Palette className="w-20 h-20 mx-auto mb-2" />
-                      <p className="text-lg">No Pokemon yet</p>
+                      <p className="text-lg">No Kartikmon yet</p>
                     </div>
                   </div>
                 )}
@@ -310,7 +310,7 @@ export default function CreateGameScreen({
                 <h3 className="text-xl font-semibold text-yellow-300">Waiting for opponent to join...</h3>
               </div>
               <p className="text-blue-200 mb-6">
-                Share the game code above with your friend. Once they join and draw their Pokemon,
+                Share the game code above with your friend. Once they join and draw their Kartikmon,
                 you can both continue to battle!
               </p>
 
@@ -370,7 +370,7 @@ export default function CreateGameScreen({
             <div className="text-center">
               <h3 className="text-xl font-semibold text-white mb-4">Ready to create battle?</h3>
               <p className="text-blue-200 mb-6">
-                Draw your Pokemon and set your attributes, then create the battle session!
+                Draw your Kartikmon and set your attributes, then create the battle session!
               </p>
               <button
                 onClick={handleCreateGame}
@@ -392,7 +392,7 @@ export default function CreateGameScreen({
         isOpen={showDrawing}
         onClose={() => setShowDrawing(false)}
         onSave={handleSaveDrawing}
-        title="Draw Your Pokemon"
+        title="Draw Your Kartikmon"
       />
     </div>
   );

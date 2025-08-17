@@ -170,14 +170,14 @@ export default function BattleScreen({
         {/* Battle Arena */}
         <div className="bg-gradient-to-br from-red-100/20 to-orange-100/20 backdrop-blur-sm rounded-3xl p-8 mb-8 border border-white/20">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-            {/* Your Pokemon */}
+            {/* Your Kartikmon */}
             <div className="text-center">
-              <h3 className="text-2xl font-bold mb-6 text-blue-300">Your Pokemon</h3>
+              <h3 className="text-2xl font-bold mb-6 text-blue-300">Your Kartikmon</h3>
               <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
                 {getCurrentUserImage() ? (
                   <img
                     src={getCurrentUserImage()}
-                    alt="Your Pokemon"
+                    alt="Your Kartikmon"
                     className="w-40 h-40 mx-auto mb-6 rounded-2xl border-4 border-white/30 shadow-2xl"
                   />
                 ) : (
@@ -222,14 +222,14 @@ export default function BattleScreen({
               </div>
             </div>
 
-            {/* Opponent Pokemon */}
+            {/* Opponent Kartikmon */}
             <div className="text-center">
-              <h3 className="text-2xl font-bold mb-6 text-red-300">Opponent Pokemon</h3>
+              <h3 className="text-2xl font-bold mb-6 text-red-300">Opponent Kartikmon</h3>
               <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
                 {getOpponentImage() ? (
                   <img
                     src={getOpponentImage()}
-                    alt="Opponent Pokemon"
+                    alt="Opponent Kartikmon"
                     className="w-40 h-40 mx-auto mb-6 rounded-2xl border-4 border-white/30 shadow-2xl"
                   />
                 ) : (
