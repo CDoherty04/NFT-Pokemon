@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Zap, Shield, Hand, Footprints, Flame, Heart, Skull } from 'lucide-react';
+import { RefreshCw, Zap, Shield, Hand, Footprints, Flame, Heart, Skull, HelpCircle } from 'lucide-react';
 
 // Define BATTLE_ACTIONS locally to avoid import issues
 const BATTLE_ACTIONS = {
@@ -58,6 +58,7 @@ export default function BattleScreen({
   const [winnerChoice, setWinnerChoice] = useState(null);
   const [mintingStatus, setMintingStatus] = useState(null);
   const [mintedTokens, setMintedTokens] = useState([]);
+  const [showMechanicsPopup, setShowMechanicsPopup] = useState(false);
 
   // Handle action checking with loading state
   const handleCheckActions = async () => {
@@ -698,6 +699,15 @@ export default function BattleScreen({
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-red-900 via-purple-900 to-indigo-900 p-4">
+      {/* Question Mark Icon - Top Left */}
+      <button
+        onClick={() => setShowMechanicsPopup(true)}
+        className="fixed top-6 left-6 z-50 bg-blue-600 hover:bg-blue-700 text-white rounded-full p-3 shadow-lg transition-all duration-200 hover:scale-110"
+        title="Battle Mechanics Help"
+      >
+        <HelpCircle size={24} />
+      </button>
+
       {/* Header */}
       <div className="max-w-6xl mx-auto">
         {/* Battle Title */}
@@ -741,23 +751,7 @@ export default function BattleScreen({
           </div>
         )}
 
-        {/* Battle Mechanics Summary */}
-        <div className="bg-gradient-to-br from-blue-900/30 to-purple-900/30 backdrop-blur-sm rounded-2xl p-6 mb-6 border border-blue-400/30">
-          <h3 className="text-xl font-bold text-blue-300 mb-4 text-center">⚔️ New Battle Mechanics ⚔️</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-200">
-            <div>
-              <p><strong>👊 Punch:</strong> Regular damage, 10% critical hit chance</p>
-              <p><strong>🦵 Kick:</strong> Double damage, 50% miss chance (Speed reduces miss)</p>
-              <p><strong>🛡️ Block:</strong> Reduces damage by 50%+ (Defense increases protection)</p>
-              <p><strong>⚡ Charge:</strong> Next attack does double damage (Speed increases success)</p>
-            </div>
-            <div>
-              <p><strong>⚔️ Attack:</strong> Increases base damage and critical hit damage</p>
-              <p><strong>🛡️ Defense:</strong> Increases max health and block effectiveness</p>
-              <p><strong>⚡ Speed:</strong> Increases critical hits, kick accuracy, and charge success</p>
-            </div>
-          </div>
-        </div>
+
 
         {/* Battle Arena */}
         <div className="bg-gradient-to-br from-red-100/20 to-orange-100/20 backdrop-blur-sm rounded-3xl p-8 mb-8 border border-white/20">
@@ -997,6 +991,48 @@ export default function BattleScreen({
         </div>
 
       </div>
+
+      {/* Battle Mechanics Popup */}
+      {showMechanicsPopup && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-gradient-to-br from-blue-900/95 to-purple-900/95 backdrop-blur-sm rounded-2xl p-8 max-w-2xl w-full border-2 border-blue-400/50 shadow-2xl">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-2xl font-bold text-blue-300">⚔️ Battle Mechanics ⚔️</h3>
+              <button
+                onClick={() => setShowMechanicsPopup(false)}
+                className="text-blue-300 hover:text-white text-2xl font-bold bg-blue-600/30 hover:bg-blue-600/50 rounded-full w-8 h-8 flex items-center justify-center transition-all duration-200"
+              >
+                ×
+              </button>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm text-blue-200">
+              <div className="space-y-3">
+                <h4 className="text-lg font-bold text-blue-300 mb-3">🎯 Actions</h4>
+                <p><strong>👊 Punch:</strong> Regular damage, 10% critical hit chance</p>
+                <p><strong>🦵 Kick:</strong> Double damage, 50% miss chance (Speed reduces miss)</p>
+                <p><strong>🛡️ Block:</strong> Reduces damage by 50%+ (Defense increases protection)</p>
+                <p><strong>⚡ Charge:</strong> Next attack does double damage (Speed increases success)</p>
+              </div>
+              <div className="space-y-3">
+                <h4 className="text-lg font-bold text-blue-300 mb-3">📊 Attributes</h4>
+                <p><strong>⚔️ Attack:</strong> Increases base damage and critical hit damage</p>
+                <p><strong>🛡️ Defense:</strong> Increases max health and block effectiveness</p>
+                <p><strong>⚡ Speed:</strong> Increases critical hits, kick accuracy, and charge success</p>
+              </div>
+            </div>
+            
+            <div className="mt-6 text-center">
+              <button
+                onClick={() => setShowMechanicsPopup(false)}
+                className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 transform hover:scale-105"
+              >
+                Got it!
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
