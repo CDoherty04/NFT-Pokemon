@@ -12,6 +12,8 @@ import MainMenu from './components/MainMenu';
 import CreateGameScreen from './components/CreateGameScreen';
 import JoinGameScreen from './components/JoinGameScreen';
 import BattleScreen from './components/BattleScreen';
+import ENSAddress from './components/ENSAddress';
+import { useENS } from './utils/useENS';
 import abi from './abi';
 import { ArrowLeft } from 'lucide-react';
 
@@ -60,6 +62,9 @@ function AppContent() {
 
 // App Logic Component
 function AppLogic({ currentWalletAddress, user }) {
+  // ENS resolution hook
+  const { resolveAddress } = useENS();
+  
   // App state
   const [currentScreen, setCurrentScreen] = useState('menu'); // 'menu', 'create', 'join', 'battle'
   const [showWalletWidget, setShowWalletWidget] = useState(false);
@@ -92,6 +97,24 @@ function AppLogic({ currentWalletAddress, user }) {
   // Smart contract state
   const [contractAddress] = useState('0x67F4Eced0ba49Af4C25Fe70493Aa4C1B075414C2');
   const [contractABI] = useState(abi);
+
+  // Function to format address with ENS name for battle log
+  const formatAddressForBattleLog = async (address) => {
+    if (!address) return 'Unknown';
+    try {
+      const ensName = await resolveAddress(address);
+      return ensName;
+    } catch (error) {
+      return `${address.substring(0, 10)}...`;
+    }
+  };
+
+  // Function to format address for battle logic (used in battleLogic.js)
+  const formatAddressForBattleLogic = (address) => {
+    if (!address) return 'Unknown';
+    // For battle logic, we'll use a shorter format
+    return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
+  };
 
   // Navigation functions
   const navigateToScreen = (screen) => {
@@ -200,8 +223,13 @@ function AppLogic({ currentWalletAddress, user }) {
         if (data.session.status === 'active' && data.session.user1 && data.session.user2) {
           setCurrentBattle(data.session);
           setBattlePhase('action-selection');
+          
+          // Format addresses with ENS names for battle log
+          const user1Display = await formatAddressForBattleLog(data.session.user1?.walletAddress);
+          const user2Display = await formatAddressForBattleLog(data.session.user2?.walletAddress);
+          
           setBattleLog([
-            `Battle started between ${data.session.user1?.walletAddress?.substring(0, 10)}... and ${data.session.user2?.walletAddress?.substring(0, 10)}...`,
+            `Battle started between ${user1Display} and ${user2Display}`,
             'Both Pokemon are ready for battle!',
             'Choose your actions simultaneously!'
           ]);
@@ -248,17 +276,22 @@ function AppLogic({ currentWalletAddress, user }) {
           setSessions(updatedSessions);
         }
         
-        // Check if we can now continue to battle
-        if (data.session.status === 'active' && data.session.user1 && data.session.user2) {
-          console.log('Session is active and ready for battle!');
-          setCurrentBattle(data.session);
-          setBattlePhase('action-selection');
-          setLastRoundMessageTime(null); // Reset round message timer for new battle
-          setBattleLog([
-            `Battle started between ${data.session.user1?.walletAddress?.substring(0, 10)}... and ${data.session.user2?.walletAddress?.substring(0, 10)}...`,
-            'Both Pokemon are ready for battle!',
-            'Choose your actions simultaneously!'
-          ]);
+                  // Check if we can now continue to battle
+          if (data.session.status === 'active' && data.session.user1 && data.session.user2) {
+            console.log('Session is active and ready for battle!');
+            setCurrentBattle(data.session);
+            setBattlePhase('action-selection');
+            setLastRoundMessageTime(null); // Reset round message timer for new battle
+            
+            // Format addresses with ENS names for battle log
+            const user1Display = await formatAddressForBattleLog(data.session.user1?.walletAddress);
+            const user2Display = await formatAddressForBattleLog(data.session.user2?.walletAddress);
+            
+            setBattleLog([
+              `Battle started between ${user1Display} and ${user2Display}`,
+              'Both Pokemon are ready for battle!',
+              'Choose your actions simultaneously!'
+            ]);
           
           // Check for existing actions
           if (data.session.user1Action || data.session.user2Action) {
@@ -328,8 +361,12 @@ function AppLogic({ currentWalletAddress, user }) {
           setCurrentBattle(data.session);
           setBattlePhase('action-selection');
           setLastRoundMessageTime(null); // Reset round message timer for new battle
+          // Format addresses with ENS names for battle log
+          const user1Display = await formatAddressForBattleLog(data.session.user1?.walletAddress);
+          const user2Display = await formatAddressForBattleLog(data.session.user2?.walletAddress);
+          
           setBattleLog([
-            `Battle started between ${data.session.user2?.walletAddress?.substring(0, 10)}... and ${data.session.user1?.walletAddress?.substring(0, 10)}...`,
+            `Battle started between ${user2Display} and ${user1Display}`,
             'Both Pokemon are ready for battle!',
             'Choose your actions simultaneously!'
           ]);
@@ -486,8 +523,12 @@ function AppLogic({ currentWalletAddress, user }) {
           
           if (battlePhase === 'completed') {
             setMessage(`🎯 New battle started! Both players have full health.`);
+            // Format addresses with ENS names for battle log
+            const user1Display = await formatAddressForBattleLog(data.session.user1?.walletAddress);
+            const user2Display = await formatAddressForBattleLog(data.session.user2?.walletAddress);
+            
             setBattleLog([
-              `New battle started between ${data.session.user1?.walletAddress?.substring(0, 10)}... and ${data.session.user2?.walletAddress?.substring(0, 10)}...`,
+              `New battle started between ${user1Display} and ${user2Display}`,
               'Both Pokemon are ready for battle!',
               'Choose your actions simultaneously!'
             ]);
@@ -853,10 +894,35 @@ function AppLogic({ currentWalletAddress, user }) {
       
       default:
         return (
-          <MainMenu
-            onNavigate={navigateToScreen}
-            isConnected={!!currentWalletAddress}
-          />
+          <div>
+            <MainMenu
+              onNavigate={navigateToScreen}
+              isConnected={!!currentWalletAddress}
+            />
+            
+            {/* ENS Resolution Demo */}
+            {currentWalletAddress && (
+              <div className="mt-8 p-6 bg-white/5 backdrop-blur-sm border border-white/20 rounded-xl max-w-2xl mx-auto">
+                <h3 className="text-xl font-semibold text-white mb-4">🔍 ENS Resolution Demo</h3>
+                <p className="text-gray-300 mb-4">
+                  Your wallet address with ENS resolution:
+                </p>
+                <div className="bg-white/10 rounded-lg p-4">
+                  <ENSAddress 
+                    address={currentWalletAddress}
+                    className="text-lg font-mono"
+                    showAddress={true}
+                  />
+                </div>
+                
+                <div className="mt-4 text-sm text-gray-400">
+                  <p>• ENS names are automatically resolved from Ethereum addresses</p>
+                  <p>• Hover over the address to see the full wallet address</p>
+                  <p>• If no ENS name exists, the address is truncated for readability</p>
+                </div>
+              </div>
+            )}
+          </div>
         );
     }
   };

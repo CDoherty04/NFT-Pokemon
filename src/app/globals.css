@@ -65,3 +65,38 @@ body {
 .animate-float {
   animation: float 6s ease-in-out infinite;
 }
+
+/* ENS Address Styling */
+.ens-address {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  transition: all 0.2s ease;
+}
+
+.ens-address:hover {
+  opacity: 0.8;
+}
+
+.ens-address.has-ens .ens-name {
+  color: #3b82f6;
+  font-weight: 500;
+}
+
+.ens-address-hint {
+  color: #6b7280;
+  font-size: 0.875rem;
+}
+
+.ens-loading {
+  opacity: 0.7;
+}
+
+.loading-dots {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
