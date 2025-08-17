@@ -108,9 +108,10 @@ export async function resetBattleStatus(sessionId) {
  * @param {Object} player2 - Player 2 data with attributes
  * @param {string} player1Action - Player 1's action
  * @param {string} player2Action - Player 2's action
+ * @param {Function} formatAddress - Optional function to format wallet addresses (e.g., for ENS resolution)
  * @returns {Object} Battle result with damage, effects, and log messages
  */
-export function resolveBattleRound(player1, player2, player1Action, player2Action) {
+export function resolveBattleRound(player1, player2, player1Action, player2Action, formatAddress = null) {
   console.log('Resolving battle round:', { player1Action, player2Action, player1, player2 });
   
   const result = {
@@ -167,6 +168,14 @@ export function resolveBattleRound(player1, player2, player1Action, player2Actio
   // Helper function to calculate health from defense
   const getMaxHealth = (defense) => 100 + (defense * 25);
 
+  // Helper function to format wallet addresses
+  const formatWalletAddress = (address) => {
+    if (formatAddress && typeof formatAddress === 'function') {
+      return formatAddress(address);
+    }
+    return `${address?.substring(0, 10)}...`;
+  };
+
   // Resolve actions based on combinations
   if (player1Action === BATTLE_ACTIONS.PUNCH && player2Action === BATTLE_ACTIONS.BLOCK) {
     // Punch vs Block
@@ -180,10 +189,10 @@ export function resolveBattleRound(player1, player2, player1Action, player2Actio
     result.player2Damage = finalDamage;
     
     if (criticalMultiplier > 1.0) {
-      result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... lands a CRITICAL PUNCH! Damage: ${totalDamage}`);
+      result.logMessages.push(`${formatWalletAddress(player1.walletAddress)} lands a CRITICAL PUNCH! Damage: ${totalDamage}`);
     }
     
-    result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... punches for ${totalDamage} damage, but ${player2.walletAddress?.substring(0, 10)}... blocks! Final damage: ${finalDamage}`);
+    result.logMessages.push(`${formatWalletAddress(player1.walletAddress)} punches for ${totalDamage} damage, but ${formatWalletAddress(player2.walletAddress)} blocks! Final damage: ${finalDamage}`);
   } else if (player1Action === BATTLE_ACTIONS.KICK && player2Action === BATTLE_ACTIONS.BLOCK) {
     // Kick vs Block
     const hitChance = getKickHitChance(p1Stats.speed);
@@ -199,12 +208,12 @@ export function resolveBattleRound(player1, player2, player1Action, player2Actio
       result.player2Damage = finalDamage;
       
       if (criticalMultiplier > 1.0) {
-        result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... lands a CRITICAL KICK! Damage: ${totalDamage}`);
+        result.logMessages.push(`${formatWalletAddress(player1.walletAddress)} lands a CRITICAL KICK! Damage: ${totalDamage}`);
       }
       
-      result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... lands a powerful kick for ${totalDamage} damage, but ${player2.walletAddress?.substring(0, 10)}... blocks! Final damage: ${finalDamage}`);
+      result.logMessages.push(`${formatWalletAddress(player1.walletAddress)} lands a powerful kick for ${totalDamage} damage, but ${formatWalletAddress(player2.walletAddress)} blocks! Final damage: ${finalDamage}`);
     } else {
-      result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... tries to kick but misses!`);
+      result.logMessages.push(`${formatWalletAddress(player1.walletAddress)} tries to kick but misses!`);
     }
   } else if (player1Action === BATTLE_ACTIONS.PUNCH && player2Action === BATTLE_ACTIONS.CHARGE) {
     // Punch vs Charge
@@ -215,10 +224,10 @@ export function resolveBattleRound(player1, player2, player1Action, player2Actio
     result.player2Damage = totalDamage;
     
     if (criticalMultiplier > 1.0) {
-      result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... lands a CRITICAL PUNCH! Damage: ${totalDamage}`);
+      result.logMessages.push(`${formatWalletAddress(player1.walletAddress)} lands a CRITICAL PUNCH! Damage: ${totalDamage}`);
     }
     
-    result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... punches for ${totalDamage} damage while ${player2.walletAddress?.substring(0, 10)}... charges up!`);
+    result.logMessages.push(`${formatWalletAddress(player1.walletAddress)} punches for ${totalDamage} damage while ${formatWalletAddress(player2.walletAddress)} charges up!`);
   } else if (player1Action === BATTLE_ACTIONS.KICK && player2Action === BATTLE_ACTIONS.CHARGE) {
     // Kick vs Charge
     const hitChance = getKickHitChance(p1Stats.speed);
@@ -231,12 +240,12 @@ export function resolveBattleRound(player1, player2, player1Action, player2Actio
       result.player2Damage = totalDamage;
       
       if (criticalMultiplier > 1.0) {
-        result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... lands a CRITICAL KICK! Damage: ${totalDamage}`);
+        result.logMessages.push(`${formatWalletAddress(player1.walletAddress)} lands a CRITICAL KICK! Damage: ${totalDamage}`);
       }
       
-      result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... lands a powerful kick for ${totalDamage} damage while ${player2.walletAddress?.substring(0, 10)}... charges up!`);
+      result.logMessages.push(`${formatWalletAddress(player1.walletAddress)} lands a powerful kick for ${totalDamage} damage while ${formatWalletAddress(player2.walletAddress)} charges up!`);
     } else {
-      result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... tries to kick but misses while ${player2.walletAddress?.substring(0, 10)}... charges up!`);
+      result.logMessages.push(`${formatWalletAddress(player1.walletAddress)} tries to kick but misses while ${formatWalletAddress(player2.walletAddress)} charges up!`);
     }
   } else if (player1Action === BATTLE_ACTIONS.BLOCK && player2Action === BATTLE_ACTIONS.PUNCH) {
     // Block vs Punch
@@ -250,10 +259,10 @@ export function resolveBattleRound(player1, player2, player1Action, player2Actio
     result.player1Damage = finalDamage;
     
     if (criticalMultiplier > 1.0) {
-      result.logMessages.push(`${player2.walletAddress?.substring(0, 10)}... lands a CRITICAL PUNCH! Damage: ${totalDamage}`);
+      result.logMessages.push(`${formatWalletAddress(player2.walletAddress)} lands a CRITICAL PUNCH! Damage: ${totalDamage}`);
     }
     
-    result.logMessages.push(`${player2.walletAddress?.substring(0, 10)}... punches for ${totalDamage} damage, but ${player1.walletAddress?.substring(0, 10)}... blocks! Final damage: ${finalDamage}`);
+    result.logMessages.push(`${formatWalletAddress(player2.walletAddress)} punches for ${totalDamage} damage, but ${formatWalletAddress(player1.walletAddress)} blocks! Final damage: ${finalDamage}`);
   } else if (player1Action === BATTLE_ACTIONS.BLOCK && player2Action === BATTLE_ACTIONS.KICK) {
     // Block vs Kick
     const hitChance = getKickHitChance(p2Stats.speed);
@@ -269,12 +278,12 @@ export function resolveBattleRound(player1, player2, player1Action, player2Actio
       result.player1Damage = finalDamage;
       
       if (criticalMultiplier > 1.0) {
-        result.logMessages.push(`${player2.walletAddress?.substring(0, 10)}... lands a CRITICAL KICK! Damage: ${totalDamage}`);
+        result.logMessages.push(`${formatWalletAddress(player2.walletAddress)} lands a CRITICAL KICK! Damage: ${totalDamage}`);
       }
       
-      result.logMessages.push(`${player2.walletAddress?.substring(0, 10)}... lands a powerful kick for ${totalDamage} damage, but ${player1.walletAddress?.substring(0, 10)}... blocks! Final damage: ${finalDamage}`);
+      result.logMessages.push(`${formatWalletAddress(player2.walletAddress)} lands a powerful kick for ${totalDamage} damage, but ${formatWalletAddress(player1.walletAddress)} blocks! Final damage: ${finalDamage}`);
     } else {
-      result.logMessages.push(`${player2.walletAddress?.substring(0, 10)}... tries to kick but misses while ${player1.walletAddress?.substring(0, 10)}... blocks!`);
+      result.logMessages.push(`${formatWalletAddress(player2.walletAddress)} tries to kick but misses while ${formatWalletAddress(player1.walletAddress)} blocks!`);
     }
   } else if (player1Action === BATTLE_ACTIONS.CHARGE && player2Action === BATTLE_ACTIONS.PUNCH) {
     // Charge vs Punch
@@ -288,12 +297,12 @@ export function resolveBattleRound(player1, player2, player1Action, player2Actio
       result.player1Damage = totalDamage;
       
       if (criticalMultiplier > 1.0) {
-        result.logMessages.push(`${player2.walletAddress?.substring(0, 10)}... lands a CRITICAL PUNCH! Damage: ${totalDamage}`);
+        result.logMessages.push(`${formatWalletAddress(player2.walletAddress)} lands a CRITICAL PUNCH! Damage: ${totalDamage}`);
       }
       
-      result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... successfully charges up while ${player2.walletAddress?.substring(0, 10)}... punches for ${totalDamage} damage!`);
+      result.logMessages.push(`${formatWalletAddress(player1.walletAddress)} successfully charges up while ${formatWalletAddress(player2.walletAddress)} punches for ${totalDamage} damage!`);
     } else {
-      result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... fails to charge up while ${player2.walletAddress?.substring(0, 10)}... punches!`);
+      result.logMessages.push(`${formatWalletAddress(player1.walletAddress)} fails to charge up while ${formatWalletAddress(player2.walletAddress)} punches!`);
     }
   } else if (player1Action === BATTLE_ACTIONS.CHARGE && player2Action === BATTLE_ACTIONS.KICK) {
     // Charge vs Kick
@@ -309,12 +318,12 @@ export function resolveBattleRound(player1, player2, player1Action, player2Actio
         result.player1Damage = totalDamage;
         
         if (criticalMultiplier > 1.0) {
-          result.logMessages.push(`${player2.walletAddress?.substring(0, 10)}... lands a CRITICAL KICK! Damage: ${totalDamage}`);
+          result.logMessages.push(`${formatWalletAddress(player2.walletAddress)} lands a CRITICAL KICK! Damage: ${totalDamage}`);
         }
         
-        result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... successfully charges up while ${player2.walletAddress?.substring(0, 10)}... lands a powerful kick for ${totalDamage} damage!`);
+        result.logMessages.push(`${formatWalletAddress(player1.walletAddress)} successfully charges up while ${formatWalletAddress(player2.walletAddress)} lands a powerful kick for ${totalDamage} damage!`);
       } else {
-        result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... successfully charges up while ${player2.walletAddress?.substring(0, 10)}... tries to kick but misses!`);
+        result.logMessages.push(`${formatWalletAddress(player1.walletAddress)} successfully charges up while ${formatWalletAddress(player2.walletAddress)} tries to kick but misses!`);
       }
     } else {
       if (Math.random() < kickHitChance) {
@@ -348,13 +357,13 @@ export function resolveBattleRound(player1, player2, player1Action, player2Actio
     result.player2Damage = p1TotalDamage;
     
     if (p1CriticalMultiplier > 1.0) {
-      result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... lands a CRITICAL PUNCH! Damage: ${p1TotalDamage}`);
+      result.logMessages.push(`${formatWalletAddress(player1.walletAddress)} lands a CRITICAL PUNCH! Damage: ${p1TotalDamage}`);
     }
     if (p2CriticalMultiplier > 1.0) {
-      result.logMessages.push(`${player2.walletAddress?.substring(0, 10)}... lands a CRITICAL PUNCH! Damage: ${p2TotalDamage}`);
+      result.logMessages.push(`${formatWalletAddress(player2.walletAddress)} lands a CRITICAL PUNCH! Damage: ${p2TotalDamage}`);
     }
     
-    result.logMessages.push(`Both players punch each other! ${player1.walletAddress?.substring(0, 10)}... takes ${p2TotalDamage} damage, ${player2.walletAddress?.substring(0, 10)}... takes ${p1TotalDamage} damage`);
+    result.logMessages.push(`Both players punch each other! ${formatWalletAddress(player1.walletAddress)} takes ${p2TotalDamage} damage, ${formatWalletAddress(player2.walletAddress)} takes ${p1TotalDamage} damage`);
   } else if (player1Action === BATTLE_ACTIONS.KICK && player2Action === BATTLE_ACTIONS.KICK) {
     // Kick vs Kick
     const p1HitChance = getKickHitChance(p1Stats.speed);
@@ -369,10 +378,10 @@ export function resolveBattleRound(player1, player2, player1Action, player2Actio
       p1Damage = Math.floor(p1BaseDamage * p1CriticalMultiplier);
       
       if (p1CriticalMultiplier > 1.0) {
-        result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... lands a CRITICAL KICK! Damage: ${p1Damage}`);
+        result.logMessages.push(`${formatWalletAddress(player1.walletAddress)} lands a CRITICAL KICK! Damage: ${p1Damage}`);
       }
     } else {
-      result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... tries to kick but misses!`);
+      result.logMessages.push(`${formatWalletAddress(player1.walletAddress)} tries to kick but misses!`);
     }
     
     if (Math.random() < p2HitChance) {
@@ -381,17 +390,17 @@ export function resolveBattleRound(player1, player2, player1Action, player2Actio
       p2Damage = Math.floor(p2BaseDamage * p2CriticalMultiplier);
       
       if (p2CriticalMultiplier > 1.0) {
-        result.logMessages.push(`${player2.walletAddress?.substring(0, 10)}... lands a CRITICAL KICK! Damage: ${p2Damage}`);
+        result.logMessages.push(`${formatWalletAddress(player2.walletAddress)} lands a CRITICAL KICK! Damage: ${p2Damage}`);
       }
     } else {
-      result.logMessages.push(`${player2.walletAddress?.substring(0, 10)}... tries to kick but misses!`);
+      result.logMessages.push(`${formatWalletAddress(player2.walletAddress)} tries to kick but misses!`);
     }
     
     result.player1Damage = p2Damage;
     result.player2Damage = p1Damage;
     
     if (p1Damage > 0 || p2Damage > 0) {
-      result.logMessages.push(`Both players kick each other! ${player1.walletAddress?.substring(0, 10)}... takes ${p2Damage} damage, ${player2.walletAddress?.substring(0, 10)}... takes ${p1Damage} damage`);
+      result.logMessages.push(`Both players kick each other! ${formatWalletAddress(player1.walletAddress)} takes ${p2Damage} damage, ${formatWalletAddress(player2.walletAddress)} takes ${p1Damage} damage`);
     }
   } else if (player1Action === BATTLE_ACTIONS.PUNCH && player2Action === BATTLE_ACTIONS.KICK) {
     // Punch vs Kick
@@ -410,12 +419,12 @@ export function resolveBattleRound(player1, player2, player1Action, player2Actio
       result.player1Damage = p2TotalDamage;
       
       if (p2CriticalMultiplier > 1.0) {
-        result.logMessages.push(`${player2.walletAddress?.substring(0, 10)}... lands a CRITICAL KICK! Damage: ${p2TotalDamage}`);
+        result.logMessages.push(`${formatWalletAddress(player2.walletAddress)} lands a CRITICAL KICK! Damage: ${p2TotalDamage}`);
       }
       
-      result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... punches for ${p1TotalDamage} damage, ${player2.walletAddress?.substring(0, 10)}... lands a powerful kick for ${p2TotalDamage} damage!`);
+      result.logMessages.push(`${formatWalletAddress(player1.walletAddress)} punches for ${p1TotalDamage} damage, ${formatWalletAddress(player2.walletAddress)} lands a powerful kick for ${p2TotalDamage} damage!`);
     } else {
-      result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... punches for ${p1TotalDamage} damage, ${player2.walletAddress?.substring(0, 10)}... tries to kick but misses!`);
+      result.logMessages.push(`${formatWalletAddress(player1.walletAddress)} punches for ${p1TotalDamage} damage, ${formatWalletAddress(player2.walletAddress)} tries to kick but misses!`);
     }
     
     result.player2Damage = p1TotalDamage;
@@ -439,9 +448,9 @@ export function resolveBattleRound(player1, player2, player1Action, player2Actio
         result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... lands a CRITICAL KICK! Damage: ${p1TotalDamage}`);
       }
       
-      result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... lands a powerful kick for ${p1TotalDamage} damage, ${player2.walletAddress?.substring(0, 10)}... punches for ${p2TotalDamage} damage!`);
+      result.logMessages.push(`${formatWalletAddress(player1.walletAddress)} lands a powerful kick for ${p1TotalDamage} damage, ${formatWalletAddress(player2.walletAddress)} punches for ${p2TotalDamage} damage!`);
     } else {
-      result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... tries to kick but misses, ${player2.walletAddress?.substring(0, 10)}... punches for ${p2TotalDamage} damage!`);
+      result.logMessages.push(`${formatWalletAddress(player1.walletAddress)} tries to kick but misses, ${formatWalletAddress(player2.walletAddress)} punches for ${p2TotalDamage} damage!`);
     }
     
     result.player1Damage = p2TotalDamage;
@@ -456,9 +465,9 @@ export function resolveBattleRound(player1, player2, player1Action, player2Actio
     if (Math.random() < p1ChargeSuccess && Math.random() < p2ChargeSuccess) {
       result.logMessages.push(`Both players successfully charge up! Next attacks will be devastating!`);
     } else if (Math.random() < p1ChargeSuccess) {
-      result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... successfully charges up while ${player2.walletAddress?.substring(0, 10)}... fails to charge!`);
+      result.logMessages.push(`${formatWalletAddress(player1.walletAddress)} successfully charges up while ${formatWalletAddress(player2.walletAddress)} fails to charge!`);
     } else if (Math.random() < p2ChargeSuccess) {
-      result.logMessages.push(`${player2.walletAddress?.substring(0, 10)}... successfully charges up while ${player1.walletAddress?.substring(0, 10)}... fails to charge!`);
+      result.logMessages.push(`${formatWalletAddress(player2.walletAddress)} successfully charges up while ${formatWalletAddress(player1.walletAddress)} fails to charge!`);
     } else {
       result.logMessages.push(`Both players fail to charge up!`);
     }
@@ -467,28 +476,28 @@ export function resolveBattleRound(player1, player2, player1Action, player2Actio
     const chargeSuccess = getChargeSuccessChance(p2Stats.speed);
     
     if (Math.random() < chargeSuccess) {
-      result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... blocks while ${player2.walletAddress?.substring(0, 10)}... successfully charges up!`);
+      result.logMessages.push(`${formatWalletAddress(player1.walletAddress)} blocks while ${formatWalletAddress(player2.walletAddress)} successfully charges up!`);
     } else {
-      result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... blocks while ${player2.walletAddress?.substring(0, 10)}... fails to charge up!`);
+      result.logMessages.push(`${formatWalletAddress(player1.walletAddress)} blocks while ${formatWalletAddress(player2.walletAddress)} fails to charge up!`);
     }
   } else if (player1Action === BATTLE_ACTIONS.CHARGE && player2Action === BATTLE_ACTIONS.BLOCK) {
     // Charge vs Block
     const chargeSuccess = getChargeSuccessChance(p1Stats.speed);
     
     if (Math.random() < chargeSuccess) {
-      result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... successfully charges up while ${player2.walletAddress?.substring(0, 10)}... blocks!`);
+      result.logMessages.push(`${formatWalletAddress(player1.walletAddress)} successfully charges up while ${formatWalletAddress(player2.walletAddress)} blocks!`);
     } else {
-      result.logMessages.push(`${player1.walletAddress?.substring(0, 10)}... fails to charge up while ${player2.walletAddress?.substring(0, 10)}... blocks!`);
+      result.logMessages.push(`${formatWalletAddress(player1.walletAddress)} fails to charge up while ${formatWalletAddress(player2.walletAddress)} blocks!`);
     }
   }
 
   // Determine round winner based on damage dealt
   if (result.player1Damage > result.player2Damage) {
     result.roundWinner = 'player2';
-    result.logMessages.push(`🏆 ${player2.walletAddress?.substring(0, 10)}... wins this round!`);
+    result.logMessages.push(`🏆 ${formatWalletAddress(player2.walletAddress)} wins this round!`);
   } else if (result.player2Damage > result.player1Damage) {
     result.roundWinner = 'player1';
-    result.logMessages.push(`🏆 ${player1.walletAddress?.substring(0, 10)}... wins this round!`);
+    result.logMessages.push(`🏆 ${formatWalletAddress(player1.walletAddress)} wins this round!`);
   } else {
     result.logMessages.push(`🤝 This round is a tie!`);
   }
