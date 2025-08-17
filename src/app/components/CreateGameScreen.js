@@ -129,32 +129,6 @@ export default function CreateGameScreen({
           </p>
         </div>
 
-        {/* Game Code Section */}
-        {sessionId && (
-          <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-8 mb-8 border border-white/20">
-            <h2 className="text-2xl font-bold text-white mb-4 text-center">Game Code</h2>
-            <div className="flex items-center justify-center gap-4 mb-6">
-              <div className="bg-white/20 backdrop-blur-sm rounded-xl px-6 py-4 border border-white/30">
-                <code className="text-3xl md:text-4xl font-mono font-bold text-white tracking-wider">
-                  {sessionId}
-                </code>
-              </div>
-              <button
-                onClick={copySessionId}
-                className={`p-3 rounded-xl transition-all duration-200 ${copied
-                  ? 'bg-green-500 text-white'
-                  : 'bg-white/20 text-white hover:bg-white/30'
-                  }`}
-              >
-                {copied ? <Check className="w-6 h-6" /> : <Copy className="w-6 h-6" />}
-              </button>
-            </div>
-            <p className="text-center text-blue-200 text-lg">
-              Share this code with your opponent to join the battle!
-            </p>
-          </div>
-        )}
-
         {/* Avatar Creation Section */}
         <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-8 mb-8 border border-white/20">
           <h2 className="text-2xl font-bold text-white mb-6 text-center">Your Kartikmon</h2>

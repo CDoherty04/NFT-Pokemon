@@ -319,29 +319,7 @@ export default function BattleScreen({
         {/* Battle Actions */}
         <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-8 mb-8 border border-white/20">
           <h3 className="text-2xl font-bold text-white mb-6 text-center">Battle Actions</h3>
-          
-          {/* Action Status and Refresh */}
-          <div className="flex justify-center items-center gap-4 mb-6">
-            <div className="text-center">
-              <p className="text-blue-200 text-sm mb-2">Action Status</p>
-              <div className="flex gap-2">
-                <span className={`px-3 py-1 rounded-lg text-xs font-bold ${
-                  currentBattle?.user1Action ? 'bg-green-500/20 text-green-300 border border-green-400/30' : 'bg-gray-500/20 text-gray-300 border border-gray-400/30'
-                }`}>
-                  {currentBattle?.user1?.walletAddress?.substring(0, 8)}...: {currentBattle?.user1Action || 'Waiting...'}
-                </span>
-                <span className={`px-3 py-1 rounded-lg text-xs font-bold ${
-                  currentBattle?.user2Action ? 'bg-green-500/20 text-green-300 border border-green-400/30' : 'bg-gray-500/20 text-gray-300 border border-gray-400/30'
-                }`}>
-                  {currentBattle?.user2?.walletAddress?.substring(0, 8)}...: {currentBattle?.user2Action || 'Waiting...'}
-                </span>
-              </div>
-              {lastActionCheck && (
-                <p className="text-xs text-blue-300/60 mt-2">
-                  Last checked: {formatTimeAgo(lastActionCheck)}
-                </p>
-              )}
-            </div>
+
             
             <button
               onClick={handleCheckActions}
@@ -358,7 +336,7 @@ export default function BattleScreen({
               <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
               <span>Auto-refresh every 1.5s</span>
             </div>
-          </div>
+          
           
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <button

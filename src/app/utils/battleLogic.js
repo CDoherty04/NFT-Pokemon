@@ -161,7 +161,7 @@ export function resolveBattleRound(player1, player2, player1Action, player2Actio
   };
 
   // Helper function to calculate base damage (same for punches and kicks)
-  const getBaseDamage = (attackStat) => Math.max(1, attackStat);
+  const getBaseDamage = (attackStat) => Math.max(1, attackStat * 6);
 
   // Helper function to calculate health gain from defense
   const getHealthGain = (defenseStat) => Math.max(1, Math.floor(defenseStat * 0.5));

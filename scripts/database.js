@@ -506,11 +506,26 @@ const submitUserAction = async (sessionId, userWalletAddress, action) => {
             // Process the battle using the existing battle logic
             const battleResult = await processBattleRound(savedSession);
             
-            // Reset actions for the next round
-            const nextRoundSession = await resetBattleActions(sessionId);
-            
-            console.log('Battle processed and actions reset for next round');
-            return nextRoundSession;
+            // After processing the battle, reset actions for the next round
+            // Only reset if the battle is not completed
+            if (battleResult.battlePhase !== 'completed') {
+                console.log('Resetting actions for next round...');
+                await resetBattleActions(sessionId);
+                
+                // Get the updated session with reset actions
+                const finalSession = await Session.findOne({ sessionId: sessionId });
+                console.log('Final session after battle processing and action reset:', {
+                    sessionId: finalSession.sessionId,
+                    health: { user1: finalSession.user1Health, user2: finalSession.user2Health },
+                    actions: { user1: finalSession.user1Action, user2: finalSession.user2Action },
+                    battlePhase: finalSession.battlePhase,
+                    currentRound: finalSession.currentRound
+                });
+                return finalSession;
+            } else {
+                console.log('Battle completed, not resetting actions');
+                return battleResult;
+            }
         }
         
         return savedSession;
@@ -533,26 +548,8 @@ const checkAndProcessBattle = async (sessionId) => {
         if (session.user1Action && session.user2Action) {
             console.log('Both actions received, processing battle...');
             
-            // Process battle logic
-            const battleResult = processBattleLogic(session.user1Action, session.user2Action, session);
-            
-            // Update session with battle results
-            const updatedSession = await Session.findOneAndUpdate(
-                { sessionId: sessionId },
-                { 
-                    $set: { 
-                        battlePhase: 'battle-resolution',
-                        updatedAt: new Date()
-                    },
-                    $push: { 
-                        battleLog: {
-                            message: battleResult.message,
-                            timestamp: new Date()
-                        }
-                    }
-                },
-                { new: true }
-            );
+            // Process the complete battle round (including health calculations)
+            const updatedSession = await processBattleRound(session);
             
             console.log('Battle processed successfully');
             return updatedSession;
@@ -587,7 +584,7 @@ const processBattleLogic = (user1Action, user2Action, session) => {
     };
     
     // Helper function to calculate base damage (same for punches and kicks)
-    const getBaseDamage = (attackStat) => Math.max(1, attackStat);
+    const getBaseDamage = (attackStat) => Math.max(1, attackStat * 6);
     
     // Helper function to calculate health gain from defense
     const getHealthGain = (defenseStat) => Math.max(1, Math.floor(defenseStat * 0.5));
@@ -713,9 +710,21 @@ const processBattleRound = async (session) => {
         // Process battle logic
         const battleResult = processBattleLogic(user1Action, user2Action, session);
         
+        console.log('Battle result:', {
+            message: battleResult.message,
+            user1Damage: battleResult.user1Damage,
+            user2Damage: battleResult.user2Damage
+        });
+        
         // Calculate new health values
         const newUser1Health = Math.max(0, session.user1Health - battleResult.user1Damage);
         const newUser2Health = Math.max(0, session.user2Health - battleResult.user2Damage);
+        
+        console.log('Health calculation:', {
+            oldHealth: { user1: session.user1Health, user2: session.user2Health },
+            damage: { user1: battleResult.user1Damage, user2: battleResult.user2Damage },
+            newHealth: { user1: newUser1Health, user2: newUser2Health }
+        });
         
         // Check if battle is over (one player has 0 health)
         const battleCompleted = newUser1Health <= 0 || newUser2Health <= 0;
@@ -748,7 +757,30 @@ const processBattleRound = async (session) => {
             { new: true }
         );
         
-        console.log('Battle round processed successfully');
+        console.log('Battle log entry added:', {
+            message: battleResult.message,
+            timestamp: new Date(),
+            battleLogLength: updatedSession.battleLog ? updatedSession.battleLog.length : 0
+        });
+        
+        console.log('Session updated in database:', {
+            sessionId: updatedSession.sessionId,
+            health: { user1: updatedSession.user1Health, user2: updatedSession.user2Health },
+            battlePhase: updatedSession.battlePhase,
+            currentRound: updatedSession.currentRound,
+            battleLogLength: updatedSession.battleLog ? updatedSession.battleLog.length : 0
+        });
+        
+        console.log('Battle round processed successfully, updated session:', {
+            sessionId: updatedSession.sessionId,
+            health: {
+                user1: updatedSession.user1Health,
+                user2: updatedSession.user2Health
+            },
+            battlePhase: updatedSession.battlePhase,
+            currentRound: updatedSession.currentRound
+        });
+        
         return updatedSession;
     } catch (error) {
         console.error('Error processing battle round:', error);
@@ -772,8 +804,6 @@ const resetBattleActions = async (sessionId) => {
                     user1Action: '',
                     user2Action: '',
                     battlePhase: 'action-selection',
-                    user1Health: 100 + (session.user1.attributes.defense * 20), // Reset to full health
-                    user2Health: 100 + (session.user2.attributes.defense * 20), // Reset to full health
                     updatedAt: new Date()
                 }
             },

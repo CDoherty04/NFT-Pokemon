@@ -388,6 +388,15 @@ function AppLogic({ currentWalletAddress, user }) {
         setUserAction(action);
         setMessage(`✅ Action submitted: ${action}`);
         
+        console.log('Action submission response:', {
+          session: data.session,
+          battleProcessed: data.battleProcessed,
+          health: {
+            user1: data.session?.user1Health,
+            user2: data.session?.user2Health
+          }
+        });
+        
         if (data.session) {
           setCurrentBattle(data.session);
           
@@ -526,7 +535,10 @@ function AppLogic({ currentWalletAddress, user }) {
   // Periodically refresh current battle and check for actions
   useEffect(() => {
     if (currentBattle) {
-      console.log('Starting auto-refresh for battle:', currentBattle.sessionId);
+      console.log('Starting auto-refresh for battle:', currentBattle.sessionId, 'with initial health:', {
+        user1Health: currentBattle.user1Health,
+        user2Health: currentBattle.user2Health
+      });
       
       const interval = setInterval(async () => {
         try {
@@ -569,6 +581,26 @@ function AppLogic({ currentWalletAddress, user }) {
               setCurrentBattle(updatedSession);
             }
 
+            // Check for health changes
+            if (updatedSession.user1Health !== currentBattle.user1Health || updatedSession.user2Health !== currentBattle.user2Health) {
+              console.log('Auto-refresh: Health changed!', {
+                user1Health: { old: currentBattle.user1Health, new: updatedSession.user1Health },
+                user2Health: { old: currentBattle.user2Health, new: updatedSession.user2Health }
+              });
+              setCurrentBattle(updatedSession);
+              
+              // Also update the battle log to show health changes
+              if (currentScreen === 'battle') {
+                setMessage(`❤️ Health updated! User1: ${updatedSession.user1Health}, User2: ${updatedSession.user2Health}`);
+              }
+            } else {
+              // Log when health is checked but unchanged
+              console.log('Auto-refresh: Health unchanged', {
+                user1Health: updatedSession.user1Health,
+                user2Health: updatedSession.user2Health
+              });
+            }
+
             // Update battle log
             if (updatedSession.battleLog && updatedSession.battleLog.length > 0) {
               const currentLogLength = currentBattle.battleLog ? currentBattle.battleLog.length : 0;
@@ -580,6 +612,10 @@ function AppLogic({ currentWalletAddress, user }) {
 
             // Update current battle with latest data
             if (JSON.stringify(updatedSession) !== JSON.stringify(currentBattle)) {
+              console.log('Updating currentBattle with new data:', {
+                oldHealth: { user1: currentBattle.user1Health, user2: currentBattle.user2Health },
+                newHealth: { user1: updatedSession.user1Health, user2: updatedSession.user2Health }
+              });
               setCurrentBattle(updatedSession);
             }
           }
@@ -591,6 +627,23 @@ function AppLogic({ currentWalletAddress, user }) {
       return () => clearInterval(interval);
     }
   }, [currentBattle, currentWalletAddress, currentScreen]);
+
+  // Monitor changes to currentBattle for debugging
+  useEffect(() => {
+    if (currentBattle) {
+      console.log('currentBattle state updated:', {
+        sessionId: currentBattle.sessionId,
+        health: {
+          user1: currentBattle.user1Health,
+          user2: currentBattle.user2Health
+        },
+        actions: {
+          user1: currentBattle.user1Action,
+          user2: currentBattle.user2Action
+        }
+      });
+    }
+  }, [currentBattle]);
 
   // Get current session for create/join screens
   const getCurrentSession = () => {
