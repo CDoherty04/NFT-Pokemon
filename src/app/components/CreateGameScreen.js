@@ -1,21 +1,19 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Copy, Check, Palette, Upload } from 'lucide-react';
+import { ArrowLeft, Copy, Check, Palette } from 'lucide-react';
 import DrawingApp from './DrawingApp';
-import ImageProcessor from './ImageProcessor';
 
-export default function CreateGameScreen({ 
-  onBack, 
-  onCreateGame, 
-  sessionId, 
+export default function CreateGameScreen({
+  onBack,
+  onCreateGame,
+  sessionId,
   isWaitingForPlayer,
   onContinueToBattle,
   canContinue,
-  onCheckSessionStatus 
+  onCheckSessionStatus
 }) {
   const [showDrawing, setShowDrawing] = useState(false);
-  const [showImageProcessor, setShowImageProcessor] = useState(false);
   const [avatarImage, setAvatarImage] = useState('');
   const [copied, setCopied] = useState(false);
   const [attributes, setAttributes] = useState({ attack: 1, defense: 1, speed: 1 });
@@ -28,7 +26,7 @@ export default function CreateGameScreen({
     if (isWaitingForPlayer && sessionId) {
       // Check immediately when component mounts
       checkSessionStatus();
-      
+
       // Then set up the interval
       interval = setInterval(() => {
         checkSessionStatus();
@@ -41,7 +39,7 @@ export default function CreateGameScreen({
 
   const checkSessionStatus = async () => {
     if (!sessionId || isRefreshing) return;
-    
+
     console.log('Checking session status for:', sessionId);
     setIsRefreshing(true);
     try {
@@ -70,7 +68,6 @@ export default function CreateGameScreen({
 
   const handleSaveProcessedImage = (imageDataUrl) => {
     setAvatarImage(imageDataUrl);
-    setShowImageProcessor(false);
   };
 
   const handleContinue = () => {
@@ -127,11 +124,10 @@ export default function CreateGameScreen({
               </div>
               <button
                 onClick={copySessionId}
-                className={`p-3 rounded-xl transition-all duration-200 ${
-                  copied 
-                    ? 'bg-green-500 text-white' 
-                    : 'bg-white/20 text-white hover:bg-white/30'
-                }`}
+                className={`p-3 rounded-xl transition-all duration-200 ${copied
+                  ? 'bg-green-500 text-white'
+                  : 'bg-white/20 text-white hover:bg-white/30'
+                  }`}
               >
                 {copied ? <Check className="w-6 h-6" /> : <Copy className="w-6 h-6" />}
               </button>
@@ -145,7 +141,7 @@ export default function CreateGameScreen({
         {/* Avatar Creation Section */}
         <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-8 mb-8 border border-white/20">
           <h2 className="text-2xl font-bold text-white mb-6 text-center">Your Pokemon</h2>
-          
+
           <div className="flex flex-col lg:flex-row items-center gap-8">
             {/* Avatar Display */}
             <div className="flex-1 text-center">
@@ -160,17 +156,8 @@ export default function CreateGameScreen({
                     <span>{avatarImage ? 'Redraw' : 'Draw'}</span>
                   </div>
                 </button>
-                <button
-                  onClick={() => setShowImageProcessor(true)}
-                  className="flex-1 px-4 py-4 bg-gradient-to-r from-blue-500 to-cyan-600 text-white font-bold text-lg rounded-xl hover:from-blue-600 hover:to-cyan-700 transition-all duration-200 transform hover:scale-105"
-                >
-                  <div className="flex items-center justify-center gap-3">
-                    <Upload className="w-6 h-6" />
-                    <span>Upload</span>
-                  </div>
-                </button>
               </div>
-              
+
               <div className="relative w-full">
                 {avatarImage ? (
                   <img
@@ -206,7 +193,7 @@ export default function CreateGameScreen({
                 <div className="text-center text-blue-200 mb-6">
                   <span className="text-2xl font-bold">{3 - attributes.attack - attributes.defense - attributes.speed}</span> points remaining
                 </div>
-                
+
                 <div className="space-y-6">
                   {/* Attack Stat */}
                   <div className="bg-gradient-to-r from-red-500/20 to-red-600/20 rounded-xl p-4 border border-red-400/30">
@@ -223,11 +210,10 @@ export default function CreateGameScreen({
                               setAttributes(prev => ({ ...prev, attack: level }));
                             }
                           }}
-                          className={`w-8 h-8 rounded-full transition-all duration-200 border-2 ${
-                            level <= attributes.attack
-                              ? level === 1 ? 'bg-red-400 border-red-500' : level === 2 ? 'bg-red-500 border-red-600' : 'bg-red-600 border-red-700'
-                              : 'bg-white/20 border-white/40 hover:bg-white/30'
-                          }`}
+                          className={`w-8 h-8 rounded-full transition-all duration-200 border-2 ${level <= attributes.attack
+                            ? level === 1 ? 'bg-red-400 border-red-500' : level === 2 ? 'bg-red-500 border-red-600' : 'bg-red-600 border-red-700'
+                            : 'bg-white/20 border-white/40 hover:bg-white/30'
+                            }`}
                         />
                       ))}
                     </div>
@@ -248,11 +234,10 @@ export default function CreateGameScreen({
                               setAttributes(prev => ({ ...prev, defense: level }));
                             }
                           }}
-                          className={`w-8 h-8 rounded-full transition-all duration-200 border-2 ${
-                            level <= attributes.defense
-                              ? level === 1 ? 'bg-blue-400 border-blue-500' : level === 2 ? 'bg-blue-500 border-blue-600' : 'bg-blue-600 border-blue-700'
-                              : 'bg-white/20 border-white/40 hover:bg-white/30'
-                          }`}
+                          className={`w-8 h-8 rounded-full transition-all duration-200 border-2 ${level <= attributes.defense
+                            ? level === 1 ? 'bg-blue-400 border-blue-500' : level === 2 ? 'bg-blue-500 border-blue-600' : 'bg-blue-600 border-blue-700'
+                            : 'bg-white/20 border-white/40 hover:bg-white/30'
+                            }`}
                         />
                       ))}
                     </div>
@@ -273,11 +258,10 @@ export default function CreateGameScreen({
                               setAttributes(prev => ({ ...prev, speed: level }));
                             }
                           }}
-                          className={`w-8 h-8 rounded-full transition-all duration-200 border-2 ${
-                            level <= attributes.speed
-                              ? level === 1 ? 'bg-green-400 border-green-500' : level === 2 ? 'bg-green-500 border-green-600' : 'bg-green-600 border-green-700'
-                              : 'bg-white/20 border-white/40 hover:bg-white/30'
-                          }`}
+                          className={`w-8 h-8 rounded-full transition-all duration-200 border-2 ${level <= attributes.speed
+                            ? level === 1 ? 'bg-green-400 border-green-500' : level === 2 ? 'bg-green-500 border-green-600' : 'bg-green-600 border-green-700'
+                            : 'bg-white/20 border-white/40 hover:bg-white/30'
+                            }`}
                         />
                       ))}
                     </div>
@@ -309,21 +293,20 @@ export default function CreateGameScreen({
                 <h3 className="text-xl font-semibold text-yellow-300">Waiting for opponent to join...</h3>
               </div>
               <p className="text-blue-200 mb-6">
-                Share the game code above with your friend. Once they join and draw their Pokemon, 
+                Share the game code above with your friend. Once they join and draw their Pokemon,
                 you can both continue to battle!
               </p>
-              
+
               {/* Refresh Status Section */}
               <div className="mb-6 p-4 bg-white/5 rounded-xl border border-white/10">
                 <div className="flex items-center justify-center gap-3 mb-3">
                   <button
                     onClick={checkSessionStatus}
                     disabled={isRefreshing}
-                    className={`p-3 rounded-xl transition-all duration-200 ${
-                      isRefreshing 
-                        ? 'bg-blue-500/50 text-blue-200 cursor-not-allowed' 
-                        : 'bg-gradient-to-r from-blue-500/20 to-purple-500/20 text-blue-200 hover:from-blue-500/30 hover:to-purple-500/30 border border-blue-400/30'
-                    }`}
+                    className={`p-3 rounded-xl transition-all duration-200 ${isRefreshing
+                      ? 'bg-blue-500/50 text-blue-200 cursor-not-allowed'
+                      : 'bg-gradient-to-r from-blue-500/20 to-purple-500/20 text-blue-200 hover:from-blue-500/30 hover:to-purple-500/30 border border-blue-400/30'
+                      }`}
                     title="Check if opponent has joined"
                   >
                     <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
@@ -346,7 +329,7 @@ export default function CreateGameScreen({
                       Last checked: {formatTimeAgo(lastChecked)}
                     </p>
                     <div className="w-full bg-white/10 rounded-full h-1">
-                      <div 
+                      <div
                         className="bg-gradient-to-r from-blue-400 to-purple-400 h-1 rounded-full transition-all duration-1000"
                         style={{
                           width: `${Math.max(0, 100 - (Math.floor((Date.now() - lastChecked.getTime()) / 1000) / 1.5) * 100)}%`
@@ -375,11 +358,10 @@ export default function CreateGameScreen({
               <button
                 onClick={handleCreateGame}
                 disabled={!avatarImage}
-                className={`px-8 py-4 font-bold text-xl rounded-xl transition-all duration-200 ${
-                  avatarImage
-                    ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700 transform hover:scale-105'
-                    : 'bg-gray-500 text-gray-300 cursor-not-allowed'
-                }`}
+                className={`px-8 py-4 font-bold text-xl rounded-xl transition-all duration-200 ${avatarImage
+                  ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700 transform hover:scale-105'
+                  : 'bg-gray-500 text-gray-300 cursor-not-allowed'
+                  }`}
               >
                 Create Battle Session
               </button>
@@ -394,14 +376,6 @@ export default function CreateGameScreen({
         onClose={() => setShowDrawing(false)}
         onSave={handleSaveDrawing}
         title="Draw Your Pokemon"
-      />
-
-      {/* Image Processor Overlay */}
-      <ImageProcessor
-        isOpen={showImageProcessor}
-        onClose={() => setShowImageProcessor(false)}
-        onSave={handleSaveProcessedImage}
-        title="Process Avatar Image"
       />
     </div>
   );
