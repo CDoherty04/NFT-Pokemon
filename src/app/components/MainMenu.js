@@ -1,9 +1,9 @@
 'use client';
 
 import React from 'react';
-import { Play, Users, Sword } from 'lucide-react';
+import { Play, Users, Sword, Wallet } from 'lucide-react';
 
-export default function MainMenu({ onNavigate, onConnectWallet }) {
+export default function MainMenu({ onNavigate, onConnectWallet, isConnected }) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 flex items-center justify-center p-4">
       {/* Background decorative elements */}
@@ -25,42 +25,59 @@ export default function MainMenu({ onNavigate, onConnectWallet }) {
           </p>
         </div>
 
+        {/* Wallet Connection Status */}
+        {!isConnected && (
+          <div className="mb-8 max-w-md mx-auto">
+            <div className="bg-yellow-500/20 border border-yellow-400/30 rounded-xl p-6 backdrop-blur-sm">
+              <div className="flex items-center justify-center gap-3 mb-3">
+                <Wallet className="w-8 h-8 text-yellow-300" />
+                <h3 className="text-xl font-semibold text-yellow-300">Wallet Not Connected</h3>
+              </div>
+              <p className="text-yellow-200 text-center">
+                Please connect your wallet using the Dynamic widget in the top-right corner to start playing!
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Main Menu Buttons */}
         <div className="flex flex-col md:flex-row items-center justify-center gap-6 mb-16">
-          {/* Connect Wallet Button */}
-          <button
-            onClick={onConnectWallet}
-            className="group relative px-8 py-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold text-xl rounded-2xl shadow-2xl hover:shadow-green-500/50 transition-all duration-300 transform hover:scale-105 hover:-translate-y-1"
-          >
-            <div className="flex items-center gap-3">
-              <Users className="w-6 h-6" />
-              <span>Connect Wallet</span>
-            </div>
-            <div className="absolute inset-0 bg-gradient-to-r from-green-400 to-emerald-500 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-          </button>
-
           {/* Create Game Button */}
           <button
             onClick={() => onNavigate('create')}
-            className="group relative px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-bold text-xl rounded-2xl shadow-2xl hover:shadow-blue-500/50 transition-all duration-300 transform hover:scale-105 hover:-translate-y-1"
+            disabled={!isConnected}
+            className={`group relative px-8 py-4 font-bold text-xl rounded-2xl shadow-2xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 ${
+              isConnected
+                ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:shadow-blue-500/50'
+                : 'bg-gray-500 text-gray-300 cursor-not-allowed opacity-50'
+            }`}
           >
             <div className="flex items-center gap-3">
               <Play className="w-6 h-6" />
               <span>Create Game</span>
             </div>
-            <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-purple-500 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+            {isConnected && (
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-purple-500 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+            )}
           </button>
 
           {/* Join Game Button */}
           <button
             onClick={() => onNavigate('join')}
-            className="group relative px-8 py-4 bg-gradient-to-r from-red-500 to-pink-600 text-white font-bold text-xl rounded-2xl shadow-2xl hover:shadow-red-500/50 transition-all duration-300 transform hover:scale-105 hover:-translate-y-1"
+            disabled={!isConnected}
+            className={`group relative px-8 py-4 font-bold text-xl rounded-2xl shadow-2xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 ${
+              isConnected
+                ? 'bg-gradient-to-r from-red-500 to-pink-600 text-white hover:shadow-red-500/50'
+                : 'bg-gray-500 text-gray-300 cursor-not-allowed opacity-50'
+            }`}
           >
             <div className="flex items-center gap-3">
               <Sword className="w-6 h-6" />
               <span>Join Game</span>
             </div>
-            <div className="absolute inset-0 bg-gradient-to-r from-red-400 to-pink-500 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+            {isConnected && (
+              <div className="absolute inset-0 bg-gradient-to-r from-red-400 to-pink-500 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+            )}
           </button>
         </div>
 

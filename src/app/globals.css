@@ -25,61 +25,7 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-/* Custom slider styles */
-input[type="range"] {
-  -webkit-appearance: none;
-  appearance: none;
-  background: transparent;
-  cursor: pointer;
-}
-
-input[type="range"]::-webkit-slider-track {
-  background: #e5e7eb;
-  height: 8px;
-  border-radius: 4px;
-}
-
-input[type="range"]::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  background: #3b82f6;
-  height: 20px;
-  width: 20px;
-  border-radius: 50%;
-  border: 2px solid #ffffff;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  transition: all 0.2s ease;
-}
-
-input[type="range"]::-webkit-slider-thumb:hover {
-  background: #2563eb;
-  transform: scale(1.1);
-}
-
-input[type="range"]::-moz-range-track {
-  background: #e5e7eb;
-  height: 8px;
-  border-radius: 4px;
-  border: none;
-}
-
-input[type="range"]::-moz-range-thumb {
-  background: #3b82f6;
-  height: 20px;
-  width: 20px;
-  border-radius: 50%;
-  border: 2px solid #ffffff;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-input[type="range"]::-moz-range-thumb:hover {
-  background: #2563eb;
-  transform: scale(1.1);
-}
-
-/* Game-specific animations */
+/* Custom animations for game components */
 @keyframes blob {
   0% {
     transform: translate(0px, 0px) scale(1);
@@ -117,59 +63,5 @@ input[type="range"]::-moz-range-thumb:hover {
 }
 
 .animate-float {
-  animation: float 3s ease-in-out infinite;
-}
-
-/* Custom slider styles for game components */
-.slider {
-  -webkit-appearance: none;
-  appearance: none;
-  background: transparent;
-  cursor: pointer;
-}
-
-.slider::-webkit-slider-track {
-  background: rgba(255, 255, 255, 0.2);
-  height: 12px;
-  border-radius: 6px;
-}
-
-.slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-  height: 24px;
-  width: 24px;
-  border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.8);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-  transition: all 0.2s ease;
-}
-
-.slider::-webkit-slider-thumb:hover {
-  background: linear-gradient(135deg, #2563eb, #7c3aed);
-  transform: scale(1.1);
-}
-
-.slider::-moz-range-track {
-  background: rgba(255, 255, 255, 0.2);
-  height: 12px;
-  border-radius: 6px;
-  border: none;
-}
-
-.slider::-moz-range-thumb {
-  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-  height: 24px;
-  width: 24px;
-  border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.8);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.slider::-moz-range-thumb:hover {
-  background: linear-gradient(135deg, #2563eb, #7c3aed);
-  transform: scale(1.1);
+  animation: float 6s ease-in-out infinite;
 }
