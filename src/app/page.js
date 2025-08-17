@@ -12,7 +12,8 @@ import MainMenu from './components/MainMenu';
 import CreateGameScreen from './components/CreateGameScreen';
 import JoinGameScreen from './components/JoinGameScreen';
 import BattleScreen from './components/BattleScreen';
-import abi from './utils/abi';
+import abi from './abi';
+import { ArrowLeft } from 'lucide-react';
 
 // Setting up list of evmNetworks
 const evmNetworks = [
@@ -645,7 +646,6 @@ function AppLogic({ currentWalletAddress, user }) {
       case 'create':
         return (
           <CreateGameScreen
-            onBack={() => navigateToScreen('menu')}
             onCreateGame={handleCreateGame}
             sessionId={getCurrentSession()?.sessionId}
             isWaitingForPlayer={getCurrentSession()?.status === 'waiting'}
@@ -658,7 +658,6 @@ function AppLogic({ currentWalletAddress, user }) {
       case 'join':
         return (
           <JoinGameScreen
-            onBack={() => navigateToScreen('menu')}
             onJoinGame={handleJoinGame}
             onContinueToBattle={handleContinueToBattle}
             canContinue={canContinueToBattle()}
@@ -668,7 +667,6 @@ function AppLogic({ currentWalletAddress, user }) {
       case 'battle':
         return (
           <BattleScreen
-            onBack={() => navigateToScreen('menu')}
             currentBattle={currentBattle}
             currentWalletAddress={currentWalletAddress}
             onSubmitAction={handleSubmitAction}
@@ -693,6 +691,24 @@ function AppLogic({ currentWalletAddress, user }) {
 
   return (
     <div className="relative">
+      {/* Header with Back Button, Wallet Widget, and Notifications */}
+      <div className="fixed top-4 left-4 z-50">
+        {currentScreen !== 'menu' && (
+          <button
+            onClick={() => navigateToScreen('menu')}
+            disabled={loading}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-200 ${
+              loading
+                ? 'bg-gray-500 text-gray-300 cursor-not-allowed'
+                : 'bg-white/10 backdrop-blur-sm text-white hover:bg-white/20 border border-white/20'
+            }`}
+          >
+            <ArrowLeft className="w-5 h-5" />
+            <span>Back to Menu</span>
+          </button>
+        )}
+      </div>
+
       {/* Dynamic Wallet Widget - Always visible */}
       <div className="fixed top-4 right-4 z-50">
         <DynamicWidget />

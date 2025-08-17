@@ -46,11 +46,10 @@ export default function MainMenu({ onNavigate, onConnectWallet, isConnected }) {
           <button
             onClick={() => onNavigate('create')}
             disabled={!isConnected}
-            className={`group relative px-8 py-4 font-bold text-xl rounded-2xl shadow-2xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 ${
-              isConnected
+            className={`group relative px-8 py-4 font-bold text-xl rounded-2xl shadow-2xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 ${isConnected
                 ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:shadow-blue-500/50'
                 : 'bg-gray-500 text-gray-300 cursor-not-allowed opacity-50'
-            }`}
+              }`}
           >
             <div className="flex items-center gap-3">
               <Play className="w-6 h-6" />
@@ -65,11 +64,10 @@ export default function MainMenu({ onNavigate, onConnectWallet, isConnected }) {
           <button
             onClick={() => onNavigate('join')}
             disabled={!isConnected}
-            className={`group relative px-8 py-4 font-bold text-xl rounded-2xl shadow-2xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 ${
-              isConnected
+            className={`group relative px-8 py-4 font-bold text-xl rounded-2xl shadow-2xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 ${isConnected
                 ? 'bg-gradient-to-r from-red-500 to-pink-600 text-white hover:shadow-red-500/50'
                 : 'bg-gray-500 text-gray-300 cursor-not-allowed opacity-50'
-            }`}
+              }`}
           >
             <div className="flex items-center gap-3">
               <Sword className="w-6 h-6" />
@@ -86,9 +84,9 @@ export default function MainMenu({ onNavigate, onConnectWallet, isConnected }) {
           {/* Left Avatar */}
           <div className="hidden lg:block transform -translate-x-8">
             <div className="relative">
-              <img 
-                src="/avatar1.png" 
-                alt="Kartikmon Avatar 1" 
+              <img
+                src="/avatar1.png"
+                alt="Kartikmon Avatar 1"
                 className="w-48 h-48 object-cover rotate-320"
               />
             </div>
@@ -97,9 +95,9 @@ export default function MainMenu({ onNavigate, onConnectWallet, isConnected }) {
           {/* Right Avatar */}
           <div className="hidden lg:block transform translate-x-8">
             <div className="relative">
-              <img 
-                src="/avatar2.png" 
-                alt="Kartikmon Avatar 2" 
+              <img
+                src="/avatar2.png"
+                alt="Kartikmon Avatar 2"
                 className="w-48 h-48 object-cover rotate-40"
               />
             </div>
@@ -109,7 +107,7 @@ export default function MainMenu({ onNavigate, onConnectWallet, isConnected }) {
 
       {/* Floating particles */}
       <div className="absolute inset-0 pointer-events-none">
-        {[...Array(20)].map((_, i) => (
+        {[...Array(40)].map((_, i) => (
           <div
             key={i}
             className="absolute w-2 h-2 bg-white rounded-full opacity-60 animate-float"

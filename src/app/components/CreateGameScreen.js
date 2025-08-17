@@ -1,11 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Copy, Check, Palette, RefreshCw } from 'lucide-react';
+import { Copy, Check, Palette, RefreshCw } from 'lucide-react';
 import DrawingApp from './DrawingApp';
 
 export default function CreateGameScreen({
-  onBack,
   onCreateGame,
   sessionId,
   isWaitingForPlayer,
@@ -29,7 +28,7 @@ export default function CreateGameScreen({
     });
   }, [sessionId, isWaitingForPlayer, canContinue]);
 
-  // Auto-refresh session status every 1.5 seconds when waiting for player
+  // Auto-refresh session status every 15 seconds when waiting for player
   useEffect(() => {
     let interval;
     if (isWaitingForPlayer && sessionId) {
@@ -39,7 +38,7 @@ export default function CreateGameScreen({
       // Then set up the interval
       interval = setInterval(() => {
         checkSessionStatus();
-      }, 1500);
+      }, 15000);
     }
     return () => {
       if (interval) clearInterval(interval);
@@ -90,7 +89,7 @@ export default function CreateGameScreen({
       avatarImage: !!avatarImage,
       attributes
     });
-    
+
     if (avatarImage) {
       console.log('Calling onCreateGame...');
       onCreateGame(avatarImage, attributes);
@@ -112,14 +111,6 @@ export default function CreateGameScreen({
     <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 p-4">
       {/* Header */}
       <div className="max-w-4xl mx-auto">
-        <button
-          onClick={onBack}
-          className="flex items-center gap-2 text-white hover:text-blue-200 transition-colors mb-8"
-        >
-          <ArrowLeft className="w-5 h-5" />
-          <span>Back to Menu</span>
-        </button>
-
         <div className="text-center mb-12">
           <h1 className="text-4xl md:text-6xl font-bold text-white mb-4">
             Create New Battle
@@ -335,7 +326,7 @@ export default function CreateGameScreen({
                     <div className="flex items-center gap-2 justify-center">
                       <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
                       <span className="text-xs text-blue-300/60">
-                        Auto-refresh every 1.5s
+                        Auto-refresh every 15s
                       </span>
                     </div>
                   </div>
@@ -349,7 +340,7 @@ export default function CreateGameScreen({
                       <div
                         className="bg-gradient-to-r from-blue-400 to-purple-400 h-1 rounded-full transition-all duration-1000"
                         style={{
-                          width: `${Math.max(0, 100 - (Math.floor((Date.now() - lastChecked.getTime()) / 1000) / 1.5) * 100)}%`
+                          width: `${Math.max(0, 100 - (Math.floor((Date.now() - lastChecked.getTime()) / 1000) / 15) * 100)}%`
                         }}
                       ></div>
                     </div>

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, RefreshCw, Zap, Shield, Hand, Footprints } from 'lucide-react';
+import { RefreshCw, Zap, Shield, Hand, Footprints } from 'lucide-react';
 
 // Define BATTLE_ACTIONS locally to avoid import issues
 const BATTLE_ACTIONS = {
@@ -40,7 +40,6 @@ const getBattleActionDescriptions = () => ({
 });
 
 export default function BattleScreen({ 
-  onBack, 
   currentBattle, 
   currentWalletAddress,
   onSubmitAction,
@@ -149,14 +148,6 @@ export default function BattleScreen({
     <div className="min-h-screen bg-gradient-to-br from-red-900 via-purple-900 to-indigo-900 p-4">
       {/* Header */}
       <div className="max-w-6xl mx-auto">
-        <button
-          onClick={onBack}
-          className="flex items-center gap-2 text-white hover:text-blue-200 transition-colors mb-8"
-        >
-          <ArrowLeft className="w-5 h-5" />
-          <span>Back to Menu</span>
-        </button>
-
         {/* Battle Title */}
         <div className="text-center mb-8">
           <h1 className="text-4xl md:text-6xl font-bold text-white mb-4 drop-shadow-2xl">

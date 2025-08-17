@@ -1,11 +1,10 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ArrowLeft, Palette, Search } from 'lucide-react';
+import { Palette, Search } from 'lucide-react';
 import DrawingApp from './DrawingApp';
 
 export default function JoinGameScreen({ 
-  onBack, 
   onJoinGame, 
   onContinueToBattle,
   canContinue 
@@ -36,14 +35,6 @@ export default function JoinGameScreen({
     <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 p-4">
       {/* Header */}
       <div className="max-w-4xl mx-auto">
-        <button
-          onClick={onBack}
-          className="flex items-center gap-2 text-white hover:text-blue-200 transition-colors mb-8"
-        >
-          <ArrowLeft className="w-5 h-5" />
-          <span>Back to Menu</span>
-        </button>
-
         <div className="text-center mb-12">
           <h1 className="text-4xl md:text-6xl font-bold text-white mb-4">
             Join Battle
