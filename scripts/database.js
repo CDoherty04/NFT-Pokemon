@@ -21,6 +21,28 @@ connection.on('connected', () => {
     console.log('Connected to MongoDB Atlas');
 });
 
+// Add connection state check function
+const ensureConnection = async () => {
+    if (connection.readyState !== 1) {
+        console.log('Waiting for MongoDB connection...');
+        await new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => {
+                reject(new Error('MongoDB connection timeout'));
+            }, 10000); // 10 second timeout
+            
+            connection.once('connected', () => {
+                clearTimeout(timeout);
+                resolve();
+            });
+            
+            connection.once('error', (err) => {
+                clearTimeout(timeout);
+                reject(err);
+            });
+        });
+    }
+};
+
 const SessionSchema = new mongoose.Schema({
     user1: {
         walletAddress: String,
@@ -171,6 +193,9 @@ const Session = mongoose.models.Session || mongoose.model('Session', SessionSche
 // Session management functions
 const createSession = async (user1, status = 'waiting') => {
     try {
+        // Ensure database connection is established
+        await ensureConnection();
+        
         console.log('Creating session with user1:', user1);
         
         // Validate and normalize attributes
@@ -242,6 +267,9 @@ const isSessionAvailable = async (sessionId) => {
 
 const joinSession = async (sessionId, user2) => {
     try {
+        // Ensure database connection is established
+        await ensureConnection();
+        
         console.log('Joining session:', sessionId, 'with user2:', user2);
         
         const session = await Session.findOne({ sessionId: sessionId });

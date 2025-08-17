@@ -1,8 +1,43 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, RefreshCw, Zap, Shield, Fist, Footprints } from 'lucide-react';
-import { BATTLE_ACTIONS, getBattleActionDescriptions } from '../utils/battleLogic.js';
+import { ArrowLeft, RefreshCw, Zap, Shield, Hand, Footprints } from 'lucide-react';
+
+// Define BATTLE_ACTIONS locally to avoid import issues
+const BATTLE_ACTIONS = {
+  PUNCH: 'punch',
+  KICK: 'kick',
+  DODGE: 'dodge',
+  BLOCK: 'block'
+};
+
+// Define action descriptions locally
+const getBattleActionDescriptions = () => ({
+  [BATTLE_ACTIONS.PUNCH]: {
+    name: 'Punch',
+    description: 'Attack based on attack stat. Speed bonus vs dodges!',
+    icon: '👊',
+    color: 'bg-red-500 hover:bg-red-600'
+  },
+  [BATTLE_ACTIONS.KICK]: {
+    name: 'Kick',
+    description: 'Attack based on attack stat. Speed bonus vs blocks!',
+    icon: '🦵',
+    color: 'bg-orange-500 hover:bg-orange-600'
+  },
+  [BATTLE_ACTIONS.DODGE]: {
+    name: 'Dodge',
+    description: 'Avoid attacks. Speed 3+ gains health from dodging!',
+    icon: '💨',
+    color: 'bg-blue-500 hover:bg-blue-600'
+  },
+  [BATTLE_ACTIONS.BLOCK]: {
+    name: 'Block',
+    description: 'Reduce damage. Speed 3+ gains health from blocking!',
+    icon: '🛡️',
+    color: 'bg-purple-500 hover:bg-purple-600'
+  }
+});
 
 export default function BattleScreen({ 
   onBack, 
@@ -56,6 +91,7 @@ export default function BattleScreen({
   const getOpponentHealth = () => {
     const role = getCurrentUserRole();
     if (!role || !currentBattle) return 100;
+    const opponentRole = role === 'user1' ? 'user2' : 'user1';
     return role === 'user1' ? currentBattle.user2Health : currentBattle.user1Health;
   };
 
@@ -269,7 +305,7 @@ export default function BattleScreen({
               title={getBattleActionDescriptions()[BATTLE_ACTIONS.PUNCH].description}
             >
               <div className="flex flex-col items-center gap-2">
-                <Fist className="w-8 h-8" />
+                <Hand className="w-8 h-8" />
                 <span>Punch</span>
               </div>
             </button>
@@ -322,22 +358,6 @@ export default function BattleScreen({
               </div>
             </button>
           </div>
-
-          {/* Action Descriptions */}
-          <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-white/80">
-            <div className="bg-white/5 rounded-lg p-3">
-              <strong>Punch:</strong> Basic attack with moderate damage
-            </div>
-            <div className="bg-white/5 rounded-lg p-3">
-              <strong>Kick:</strong> Strong attack with high damage but lower accuracy
-            </div>
-            <div className="bg-white/5 rounded-lg p-3">
-              <strong>Dodge:</strong> Avoid incoming attacks with speed bonus
-            </div>
-            <div className="bg-white/5 rounded-lg p-3">
-              <strong>Block:</strong> Reduce incoming damage with defense bonus
-            </div>
-          </div>
         </div>
 
         {/* Battle Log */}
@@ -388,7 +408,7 @@ export default function BattleScreen({
 
         {/* Wallet Widget */}
         {showWalletWidget && (
-          <div className="fixed top-4 right-4 z-50">
+          <div className="fixed top-4 z-50">
             <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
               <h4 className="text-white font-semibold mb-2">Wallet Connection</h4>
               <p className="text-blue-200 text-sm">

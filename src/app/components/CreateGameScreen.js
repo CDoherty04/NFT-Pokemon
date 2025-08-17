@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { ArrowLeft, Copy, Check, Palette, Users, Upload } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ArrowLeft, Copy, Check, Palette, Upload } from 'lucide-react';
 import DrawingApp from './DrawingApp';
 import ImageProcessor from './ImageProcessor';
 
@@ -11,13 +11,51 @@ export default function CreateGameScreen({
   sessionId, 
   isWaitingForPlayer,
   onContinueToBattle,
-  canContinue 
+  canContinue,
+  onCheckSessionStatus 
 }) {
   const [showDrawing, setShowDrawing] = useState(false);
   const [showImageProcessor, setShowImageProcessor] = useState(false);
   const [avatarImage, setAvatarImage] = useState('');
   const [copied, setCopied] = useState(false);
-  const [attributes, setAttributes] = useState({ attack: 0, defense: 0, speed: 0 });
+  const [attributes, setAttributes] = useState({ attack: 1, defense: 1, speed: 1 });
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastChecked, setLastChecked] = useState(null);
+
+  // Auto-refresh session status every 1.5 seconds when waiting for player
+  useEffect(() => {
+    let interval;
+    if (isWaitingForPlayer && sessionId) {
+      // Check immediately when component mounts
+      checkSessionStatus();
+      
+      // Then set up the interval
+      interval = setInterval(() => {
+        checkSessionStatus();
+      }, 1500);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isWaitingForPlayer, sessionId]);
+
+  const checkSessionStatus = async () => {
+    if (!sessionId || isRefreshing) return;
+    
+    console.log('Checking session status for:', sessionId);
+    setIsRefreshing(true);
+    try {
+      if (onCheckSessionStatus) {
+        await onCheckSessionStatus(sessionId);
+        console.log('Session status check completed');
+      }
+      setLastChecked(new Date());
+    } catch (error) {
+      console.error('Error checking session status:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   const copySessionId = () => {
     navigator.clipboard.writeText(sessionId);
@@ -45,6 +83,15 @@ export default function CreateGameScreen({
     if (avatarImage) {
       onCreateGame(avatarImage, attributes);
     }
+  };
+
+  const formatTimeAgo = (date) => {
+    if (!date) return '';
+    const now = new Date();
+    const diff = Math.floor((now - date) / 1000);
+    if (diff < 60) return `${diff}s ago`;
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+    return `${Math.floor(diff / 3600)}h ago`;
   };
 
   return (
@@ -265,6 +312,51 @@ export default function CreateGameScreen({
                 Share the game code above with your friend. Once they join and draw their Pokemon, 
                 you can both continue to battle!
               </p>
+              
+              {/* Refresh Status Section */}
+              <div className="mb-6 p-4 bg-white/5 rounded-xl border border-white/10">
+                <div className="flex items-center justify-center gap-3 mb-3">
+                  <button
+                    onClick={checkSessionStatus}
+                    disabled={isRefreshing}
+                    className={`p-3 rounded-xl transition-all duration-200 ${
+                      isRefreshing 
+                        ? 'bg-blue-500/50 text-blue-200 cursor-not-allowed' 
+                        : 'bg-gradient-to-r from-blue-500/20 to-purple-500/20 text-blue-200 hover:from-blue-500/30 hover:to-purple-500/30 border border-blue-400/30'
+                    }`}
+                    title="Check if opponent has joined"
+                  >
+                    <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
+                  </button>
+                  <div className="text-center">
+                    <span className="text-sm text-white/80 block">
+                      {isRefreshing ? 'Checking status...' : 'Check status manually'}
+                    </span>
+                    <div className="flex items-center gap-2 justify-center">
+                      <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                      <span className="text-xs text-blue-300/60">
+                        Auto-refresh every 1.5s
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                {lastChecked && (
+                  <div className="text-center">
+                    <p className="text-xs text-white/60 mb-2">
+                      Last checked: {formatTimeAgo(lastChecked)}
+                    </p>
+                    <div className="w-full bg-white/10 rounded-full h-1">
+                      <div 
+                        className="bg-gradient-to-r from-blue-400 to-purple-400 h-1 rounded-full transition-all duration-1000"
+                        style={{
+                          width: `${Math.max(0, 100 - (Math.floor((Date.now() - lastChecked.getTime()) / 1000) / 1.5) * 100)}%`
+                        }}
+                      ></div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {canContinue && (
                 <button
                   onClick={handleContinue}
